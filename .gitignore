@@ -2,3 +2,6 @@ data
 .env
 # Ignore Excel/Office temp files
 ~$*.xls*
+__pycache__/
+*.pyc
+*.pyo

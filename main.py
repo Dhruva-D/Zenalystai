@@ -21,8 +21,9 @@ from po_invoice_verification import POInvoiceVerificationEngine
 
 # Import inventory analysis engines
 from inventory_cost_analysis import InventoryCostAnalysisEngine
-from inventory_ageing_analysis import InventoryAgeingAnalysisEngine
+from inventory_ageing_analysis import InventoryAgeingAnalysisEngine  
 from inventory_valuation_analysis import InventoryValuationAnalysisEngine
+from profitability_analysis import ProfitabilityAnalysisEngine
 
 app = FastAPI(
     title="ABC Book House - Comprehensive ETL & Analytics API", 
@@ -797,21 +798,273 @@ async def run_comprehensive_inventory_analysis():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# =============================================================================
+# PROFITABILITY ANALYSIS ENDPOINTS
+# =============================================================================
+
+@app.post("/analyze/profitability")
+async def run_profitability_analysis():
+    """
+    Run comprehensive profitability analysis
+    
+    Analyzes:
+    - Vendor-wise margin performance
+    - Category-wise profitability ranking
+    - SKU-level gross margin calculation
+    - Top 5 most profitable products
+    - Negative margin identification
+    """
+    try:
+        print("🚀 Running profitability analysis...")
+        
+        # Initialize analysis engine
+        engine = ProfitabilityAnalysisEngine()
+        
+        # Run analysis
+        result = engine.run_profitability_analysis()
+        
+        # Export to Excel
+        output_file = engine.export_to_excel(result)
+        
+        # Prepare response summary
+        summary = {
+            "total_skus": result.total_skus_analyzed,
+            "total_vendors": result.total_vendors,
+            "total_categories": result.total_categories,
+            "portfolio_value": result.portfolio_stock_value,
+            "portfolio_margin": result.portfolio_gross_margin,
+            "portfolio_margin_percentage": result.portfolio_margin_percentage,
+            "negative_margin_count": len(result.negative_margin_skus)
+        }
+        
+        # Top performers
+        top_products = [
+            {
+                "rank": i + 1,
+                "product_name": sku.product_name,
+                "margin_percentage": sku.gross_margin_percentage,
+                "contribution": sku.contribution_to_profit
+            }
+            for i, sku in enumerate(result.top_5_profitable_skus)
+        ]
+        
+        best_vendors = [
+            {
+                "rank": vendor.profitability_rank,
+                "vendor_name": vendor.vendor_name,
+                "average_margin": vendor.average_margin_percentage,
+                "total_margin": vendor.total_margin_amount
+            }
+            for vendor in result.best_vendors
+        ]
+        
+        profitable_categories = [
+            {
+                "category_name": cat.category_name,
+                "profitability_score": cat.profitability_score,
+                "average_margin": cat.average_margin_percentage,
+                "market_share": cat.market_share_percentage
+            }
+            for cat in result.most_profitable_categories
+        ]
+        
+        return {
+            "status": "success",
+            "message": "Profitability analysis completed successfully",
+            "summary": summary,
+            "top_5_products": top_products,
+            "best_vendors": best_vendors,
+            "profitable_categories": profitable_categories,
+            "negative_margin_products": [
+                {
+                    "product_name": sku.product_name,
+                    "vendor": sku.vendor,
+                    "margin_percentage": sku.gross_margin_percentage,
+                    "loss_amount": sku.contribution_to_profit
+                }
+                for sku in result.negative_margin_skus
+            ],
+            "recommendations": result.recommendations,
+            "file_generated": output_file,
+            "timestamp": result.analysis_timestamp.isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in profitability analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/analyze/profitability/dashboard")
+async def profitability_dashboard():
+    """
+    Get profitability analysis dashboard with key metrics
+    """
+    try:
+        print("📊 Generating profitability dashboard...")
+        
+        # Run quick analysis for dashboard
+        engine = ProfitabilityAnalysisEngine()
+        result = engine.run_profitability_analysis()
+        
+        # Create dashboard data
+        dashboard = {
+            "overview": {
+                "total_skus": result.total_skus_analyzed,
+                "total_vendors": result.total_vendors,
+                "total_categories": result.total_categories,
+                "portfolio_value": f"₹{result.portfolio_stock_value:,.2f}",
+                "portfolio_margin": f"₹{result.portfolio_gross_margin:,.2f}",
+                "margin_percentage": f"{result.portfolio_margin_percentage:.2f}%",
+                "negative_margin_skus": len(result.negative_margin_skus)
+            },
+            "top_performers": {
+                "products": [
+                    {
+                        "name": sku.product_name,
+                        "margin": f"{sku.gross_margin_percentage:.2f}%",
+                        "contribution": f"₹{sku.contribution_to_profit:,.2f}"
+                    }
+                    for sku in result.top_5_profitable_skus
+                ],
+                "vendors": [
+                    {
+                        "name": vendor.vendor_name,
+                        "avg_margin": f"{vendor.average_margin_percentage:.2f}%",
+                        "products": vendor.total_products
+                    }
+                    for vendor in result.best_vendors
+                ],
+                "categories": [
+                    {
+                        "name": cat.category_name,
+                        "score": f"{cat.profitability_score:.2f}",
+                        "margin": f"{cat.average_margin_percentage:.2f}%"
+                    }
+                    for cat in result.most_profitable_categories
+                ]
+            },
+            "alerts": []
+        }
+        
+        # Add alerts for negative margins
+        if result.negative_margin_skus:
+            dashboard["alerts"].append({
+                "type": "warning",
+                "message": f"{len(result.negative_margin_skus)} products have negative margins",
+                "action": "Review pricing or supplier negotiations"
+            })
+        
+        # Add alerts for poor performing vendors
+        if result.worst_vendors:
+            worst_vendor = result.worst_vendors[-1]
+            if worst_vendor.average_margin_percentage < 20:
+                dashboard["alerts"].append({
+                    "type": "info",
+                    "message": f"{worst_vendor.vendor_name} has low margins ({worst_vendor.average_margin_percentage:.1f}%)",
+                    "action": "Consider renegotiating terms"
+                })
+        
+        return {
+            "dashboard": dashboard,
+            "analysis_status": "completed",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error generating profitability dashboard: {e}")
+        raise HTTPException(status_code=500, detail=f"Dashboard generation failed: {str(e)}")
+
+@app.get("/analyze/profitability/vendors")
+async def get_vendor_profitability():
+    """Get detailed vendor profitability analysis"""
+    try:
+        engine = ProfitabilityAnalysisEngine()
+        result = engine.run_profitability_analysis()
+        
+        vendor_analysis = [
+            {
+                "rank": vendor.profitability_rank,
+                "vendor_name": vendor.vendor_name,
+                "total_products": vendor.total_products,
+                "total_margin": f"₹{vendor.total_margin_amount:,.2f}",
+                "average_margin_percentage": f"{vendor.average_margin_percentage:.2f}%",
+                "best_product": vendor.best_performing_product,
+                "worst_product": vendor.worst_performing_product,
+                "negative_margins": vendor.negative_margin_products,
+                "stock_value": f"₹{vendor.total_stock_value:,.2f}",
+                "potential_revenue": f"₹{vendor.total_potential_revenue:,.2f}"
+            }
+            for vendor in result.vendor_profitability
+        ]
+        
+        return {
+            "status": "success",
+            "vendor_analysis": vendor_analysis,
+            "summary": {
+                "total_vendors": len(vendor_analysis),
+                "best_vendor": vendor_analysis[0]["vendor_name"] if vendor_analysis else None,
+                "average_portfolio_margin": result.portfolio_margin_percentage
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in vendor profitability analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/analyze/profitability/categories")
+async def get_category_profitability():
+    """Get detailed category profitability analysis"""
+    try:
+        engine = ProfitabilityAnalysisEngine()
+        result = engine.run_profitability_analysis()
+        
+        category_analysis = [
+            {
+                "category_name": cat.category_name,
+                "total_products": cat.total_products,
+                "market_share": f"{cat.market_share_percentage:.2f}%",
+                "total_margin": f"₹{cat.total_margin_amount:,.2f}",
+                "average_margin_percentage": f"{cat.average_margin_percentage:.2f}%",
+                "profitability_score": f"{cat.profitability_score:.2f}",
+                "top_product": cat.top_product,
+                "negative_margins": cat.negative_margin_products,
+                "stock_value": f"₹{cat.total_stock_value:,.2f}",
+                "potential_revenue": f"₹{cat.total_potential_revenue:,.2f}"
+            }
+            for cat in result.category_profitability
+        ]
+        
+        return {
+            "status": "success",
+            "category_analysis": category_analysis,
+            "summary": {
+                "total_categories": len(category_analysis),
+                "most_profitable": category_analysis[0]["category_name"] if category_analysis else None,
+                "average_portfolio_margin": result.portfolio_margin_percentage
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in category profitability analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "3.0.0",
-        "api_endpoints": 22,
+        "version": "4.0.0",
+        "api_endpoints": 26,
         "features": [
             "Document Extraction (PO, Invoices, GRN, Sales)",
             "3-Way Matching Analysis", 
             "PO-Invoice Verification",
             "Inventory Cost Analysis",
             "Inventory Ageing Analysis", 
-            "FIFO Inventory Valuation"
+            "FIFO Inventory Valuation",
+            "Comprehensive Profitability Analysis"
         ]
     }
 
@@ -822,5 +1075,6 @@ if __name__ == "__main__":
     print("🔄 3-Way Matching Dashboard at: http://localhost:8000/api/matching/dashboard")
     print("📈 PO-Invoice Verification at: http://localhost:8000/verify/po-invoice/dashboard")
     print("📦 Inventory Analysis Dashboard at: http://localhost:8000/analyze/inventory/dashboard")
+    print("💰 Profitability Analysis Dashboard at: http://localhost:8000/analyze/profitability/dashboard")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
