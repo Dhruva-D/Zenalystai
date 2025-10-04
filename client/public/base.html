@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZenalystAI | AI-Powered Business Analytics Platform</title>
+  <meta name="description" content="Transform your business data into actionable insights with automated analytics, intelligent data processing, and real-time business intelligence. 99.9% accuracy in under 1 minute." />
+  <script>
+    // This helps with SPA routing
+    (function() {
+      // No need for redirection if the URL doesn't have a file extension
+      if (window.location.pathname.indexOf('.') === -1) return;
+      
+      // Redirect to root for handling by React Router
+      var path = window.location.pathname.split('.');
+      path.pop();
+      path = path.join('.');
+      
+      // Keep the query string and hash if they exist
+      var newPath = path + window.location.search + window.location.hash;
+      window.history.replaceState(null, null, newPath);
+    })();
+  </script>
+</head>
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
