@@ -8,18 +8,18 @@ export const SolutionOverview = () => {
   const features = [
     {
       icon: Target,
-      title: "Intelligent Data Extraction",
-      points: ["OCR-powered PDF parsing", "Excel automation", "Multi-format support"],
+      title: "Intelligent Data Processing",
+      points: ["AI-powered data extraction", "Multi-format support", "Automated cleaning"],
     },
     {
       icon: Zap,
-      title: "Automated ETL Pipeline",
-      points: ["3-way match verification", "FIFO inventory valuation", "Real-time processing"],
+      title: "Advanced Analytics Engine",
+      points: ["Pattern recognition", "Trend analysis", "Real-time processing"],
     },
     {
       icon: BarChart,
-      title: "Actionable Analytics",
-      points: ["Interactive dashboards", "Profitability insights", "Smart alerts"],
+      title: "Actionable Insights",
+      points: ["Interactive dashboards", "Predictive analytics", "Smart recommendations"],
     },
   ];
 
@@ -35,12 +35,12 @@ export const SolutionOverview = () => {
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             Your Complete{" "}
             <span className="bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient-shift">
-              ETL & Analytics
+              Data Analytics
             </span>{" "}
-            Solution
+            Platform
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            From raw data to business intelligence in minutes, not days
+            Transform raw data into actionable business intelligence with AI-powered analytics
           </p>
         </motion.div>
 

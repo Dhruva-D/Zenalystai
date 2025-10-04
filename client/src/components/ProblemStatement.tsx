@@ -40,11 +40,11 @@ export const ProblemStatement = () => {
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             The Challenge{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Bookstores Face
+              Businesses Face
             </span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Traditional data management holds your business back
+            Manual data processing and outdated analytics hold your business back
           </p>
         </motion.div>
 

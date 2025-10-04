@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Play, TrendingUp, Zap, Shield } from "lucide-react";
+import { ArrowRight, Play, TrendingUp, Zap, Shield, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-dashboard.png";
 
@@ -48,29 +48,29 @@ export const Hero = () => {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-accent rounded-full text-white text-sm font-medium shadow-lg">
               <Zap className="w-4 h-4" />
-              <span>Automate Your Bookstore Analytics</span>
+              <span>AI-Powered Data Analytics</span>
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
               Transform Your{" "}
               <span className="bg-gradient-to-r from-primary via-accent to-indigo-600 bg-clip-text text-transparent">
-                Bookstore Data
+                Business Data
               </span>{" "}
               Into Insights
             </h1>
 
             <p className="text-xl text-muted-foreground leading-relaxed">
-              Automated ETL pipeline that extracts data from Excel and PDF files, 
-              performs 3-way match verification, and delivers actionable business 
-              intelligence in real-time.
+              Advanced AI-powered analytics platform that processes your data files, 
+              performs intelligent analysis, and delivers actionable business 
+              intelligence with unprecedented accuracy and speed.
             </p>
 
             {/* Features list */}
             <div className="space-y-3">
               {[
-                { icon: TrendingUp, text: "99.9% Match Accuracy" },
+                { icon: TrendingUp, text: "99.9% Analysis Accuracy" },
                 { icon: Zap, text: "Process 10K+ Records in <1 Minute" },
-                { icon: Shield, text: "FIFO Valuation & Cost Analysis" },
+                { icon: Shield, text: "Enterprise-Grade Security" },
               ].map((feature, index) => (
                 <motion.div
                   key={index}
@@ -92,8 +92,9 @@ export const Hero = () => {
               <Button 
                 size="lg" 
                 className="bg-gradient-cta text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                onClick={() => window.location.href = '/upload'}
               >
-                Start Free Trial
+                Upload Your Data
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               
@@ -101,9 +102,10 @@ export const Hero = () => {
                 size="lg" 
                 variant="outline"
                 className="border-2 border-primary hover:bg-primary/5"
+                onClick={() => window.location.href = '/analyze'}
               >
-                <Play className="mr-2 w-5 h-5" />
-                Watch Demo
+                <BarChart3 className="mr-2 w-5 h-5" />
+                Start Analysis
               </Button>
             </div>
 
@@ -136,13 +138,13 @@ export const Hero = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative"
+            className="relative lg:scale-110 xl:scale-125"
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl">
               <img 
                 src={heroImage} 
                 alt="Analytics Dashboard Preview" 
-                className="w-full h-auto"
+                className="w-full h-auto max-w-none"
               />
               
               {/* Floating badge */}
