@@ -5,7 +5,7 @@ import heroImage from "@/assets/hero-dashboard.png";
 
 export const Hero = () => {
   return (
-    <section className="relative min-h-[100vh] lg:min-h-[120vh] flex items-center justify-center overflow-hidden px-4 py-20 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <section className="relative min-h-[100vh] lg:min-h-[120vh] flex items-center justify-center overflow-hidden px-4 pt-0 pb-20 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-mesh opacity-40" />
       
@@ -138,7 +138,7 @@ export const Hero = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative lg:col-span-3 scale-105 md:scale-110 lg:scale-125 xl:scale-150 2xl:scale-175"
+            className="relative lg:col-span-3 scale-105 md:scale-110 lg:scale-125 xl:scale-150 2xl:scale-175 -translate-y-12"
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl">
               <img 

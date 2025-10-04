@@ -141,7 +141,7 @@ export const About = () => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="max-w-4xl mx-auto mb-16"
         >
-          <Card className="bg-gradient-to-br from-white to-blue-50/50 backdrop-blur-sm shadow-xl">
+          {/* <Card className="bg-gradient-to-br from-white to-blue-50/50 backdrop-blur-sm shadow-xl">
             <CardContent className="p-12">
               <h2 className="text-3xl font-bold mb-6 text-center">Our Story</h2>
               <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed space-y-4">
@@ -161,7 +161,7 @@ export const About = () => {
                 </p>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </motion.div>
 
         {/* Values Section */}
@@ -203,9 +203,9 @@ export const About = () => {
           transition={{ duration: 0.6, delay: 0.7 }}
           className="mb-16"
         >
-          <h2 className="text-3xl font-bold text-center mb-12">Meet Our Team</h2>
+        {/* <h2 className="text-3xl font-bold text-center mb-12">Meet Our Team</h2> */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
+            {/* {team.map((member, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
@@ -225,7 +225,7 @@ export const About = () => {
                   </CardContent>
                 </Card>
               </motion.div>
-            ))}
+            ))} */}
           </div>
         </motion.div>
 
