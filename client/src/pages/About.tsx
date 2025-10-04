@@ -252,7 +252,9 @@ export const About = () => {
             </CardContent>
           </Card>
         </motion.div>
+        </div>
       </div>
-    </div>
+      <FloatingScrollToTop />
+    </>
   );
 };

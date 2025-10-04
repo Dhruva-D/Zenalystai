@@ -5,7 +5,7 @@ import heroImage from "@/assets/hero-dashboard.png";
 
 export const Hero = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-20 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <section className="relative min-h-[100vh] lg:min-h-[120vh] flex items-center justify-center overflow-hidden px-4 py-20 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-mesh opacity-40" />
       
@@ -37,14 +37,14 @@ export const Hero = () => {
         className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full blur-3xl"
       />
 
-      <div className="container max-w-7xl mx-auto relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div className="container max-w-[1400px] mx-auto relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-center">
           {/* Left side - Content */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="space-y-8"
+            className="space-y-8 lg:col-span-2"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-accent rounded-full text-white text-sm font-medium shadow-lg">
               <Zap className="w-4 h-4" />
@@ -138,13 +138,13 @@ export const Hero = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative lg:scale-110 xl:scale-125"
+            className="relative lg:col-span-3 scale-105 md:scale-110 lg:scale-125 xl:scale-150 2xl:scale-175"
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl">
               <img 
                 src={heroImage} 
                 alt="Analytics Dashboard Preview" 
-                className="w-full h-auto max-w-none"
+                className="w-full h-auto max-w-none min-h-[350px] md:min-h-[450px] lg:min-h-[600px] xl:min-h-[700px] object-cover"
               />
               
               {/* Floating badge */}
