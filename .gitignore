@@ -1,0 +1,4 @@
+data
+.env
+# Ignore Excel/Office temp files
+~$*.xls*
