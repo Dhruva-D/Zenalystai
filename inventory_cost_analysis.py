@@ -377,10 +377,14 @@ class InventoryCostAnalysisEngine:
         
         category_df = pd.DataFrame(category_data)
         
-        # Save to Excel
-        with pd.ExcelWriter('inventory_cost_analysis.xlsx', engine='openpyxl') as writer:
-            items_df.to_excel(writer, sheet_name='Item_Analysis', index=False)
-            category_df.to_excel(writer, sheet_name='Category_Analysis', index=False)
+        # Save to Excel with error handling
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'inventory_cost_analysis_{timestamp}.xlsx'
+        
+        try:
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                items_df.to_excel(writer, sheet_name='Item_Analysis', index=False)
+                category_df.to_excel(writer, sheet_name='Category_Analysis', index=False)
             
             # Create summary sheet
             summary_data = {
@@ -408,6 +412,15 @@ class InventoryCostAnalysisEngine:
             
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name='Executive_Summary', index=False)
+            
+            print(f"✅ Inventory Cost Analysis Complete! Results saved to: {filename}")
+            
+        except PermissionError as e:
+            print(f"⚠️  Warning: Could not save Excel file - {str(e)}")
+            print(f"   📊 Analysis completed: {len(results)} items analyzed")
+        except Exception as e:
+            print(f"⚠️  Warning: Excel save error - {str(e)}")
+            print(f"   📊 Analysis completed: {len(results)} items analyzed")
 
 def main():
     """Demo execution of Inventory Cost Analysis"""

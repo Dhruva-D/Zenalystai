@@ -475,34 +475,46 @@ class POInvoiceVerificationEngine:
                 financial_variance=stats['total_invoice_value'] - stats['total_po_value']
             )
         
-        # Save results to Excel
-        with pd.ExcelWriter('po_invoice_verification_results.xlsx', engine='openpyxl') as writer:
-            results_df.to_excel(writer, sheet_name='Verification_Results', index=False)
-            
-            # Vendor performance summary
-            vendor_df = pd.DataFrame([
-                {
-                    'Vendor_Name': vp.vendor_name,
-                    'Total_POs': vp.total_pos,
-                    'Total_Invoices': vp.total_invoices,
-                    'Matched_Items': vp.matched_items,
-                    'Excess_Items': vp.excess_items,
-                    'Short_Items': vp.short_items,
-                    'Price_Variance_Items': vp.price_variance_items,
-                    'Compliance_Score_Pct': vp.compliance_score,
-                    'Reliability_Rating': vp.reliability_rating,
-                    'Total_PO_Value': vp.total_po_value,
-                    'Total_Invoice_Value': vp.total_invoice_value,
-                    'Financial_Variance': vp.financial_variance
-                }
-                for vp in vendor_performance.values()
-            ])
-            vendor_df.to_excel(writer, sheet_name='Vendor_Performance', index=False)
+        # Save results to Excel with error handling
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'po_invoice_verification_results_{timestamp}.xlsx'
         
-        print(f"✅ PO-Invoice Verification Complete!")
-        print(f"   📊 {len(results_df)} item verifications processed")
-        print(f"   🏪 {len(vendor_performance)} vendors analyzed")
-        print(f"   📁 Results saved to: po_invoice_verification_results.xlsx")
+        try:
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                results_df.to_excel(writer, sheet_name='Verification_Results', index=False)
+                
+                # Vendor performance summary
+                vendor_df = pd.DataFrame([
+                    {
+                        'Vendor_Name': vp.vendor_name,
+                        'Total_POs': vp.total_pos,
+                        'Total_Invoices': vp.total_invoices,
+                        'Matched_Items': vp.matched_items,
+                        'Excess_Items': vp.excess_items,
+                        'Short_Items': vp.short_items,
+                        'Price_Variance_Items': vp.price_variance_items,
+                        'Compliance_Score_Pct': vp.compliance_score,
+                        'Reliability_Rating': vp.reliability_rating,
+                        'Total_PO_Value': vp.total_po_value,
+                        'Total_Invoice_Value': vp.total_invoice_value,
+                        'Financial_Variance': vp.financial_variance
+                    }
+                    for vp in vendor_performance.values()
+                ])
+                vendor_df.to_excel(writer, sheet_name='Vendor_Performance', index=False)
+            
+            print(f"✅ PO-Invoice Verification Complete!")
+            print(f"   📊 {len(results_df)} item verifications processed")
+            print(f"   🏪 {len(vendor_performance)} vendors analyzed")
+            print(f"   📁 Results saved to: {filename}")
+            
+        except PermissionError as e:
+            print(f"⚠️  Warning: Could not save Excel file - {str(e)}")
+            print(f"   📊 {len(results_df)} item verifications processed (results still available)")
+            print(f"   🏪 {len(vendor_performance)} vendors analyzed")
+        except Exception as e:
+            print(f"⚠️  Warning: Excel save error - {str(e)}")
+            print(f"   📊 Analysis completed: {len(results_df)} verifications, {len(vendor_performance)} vendors")
         
         return results_df, vendor_performance
 

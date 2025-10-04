@@ -361,47 +361,59 @@ class InventoryValuationAnalysisEngine:
         
         category_df = pd.DataFrame(category_data)
         
-        # Save to Excel
-        with pd.ExcelWriter('inventory_valuation_analysis.xlsx', engine='openpyxl') as writer:
-            items_df.to_excel(writer, sheet_name='FIFO_Valuation_Analysis', index=False)
-            category_df.to_excel(writer, sheet_name='Category_Valuation', index=False)
-            
-            # Executive summary
-            total_current_value = sum([r.current_stock_value for r in results])
-            total_fifo_value = sum([r.fifo_stock_value for r in results])
-            total_market_value = sum([r.market_value for r in results])
-            
-            summary_data = {
-                'Metric': [
-                    'Total Items Analyzed',
-                    'Total Current Book Value',
-                    'Total FIFO Book Value',
-                    'Total Market Value',
-                    'Valuation Difference (Current vs FIFO)',
-                    'Market Premium over FIFO',
-                    'Undervalued Items',
-                    'Overvalued Items',
-                    'Fair Valued Items',
-                    'Profitable Liquidation Items',
-                    'Loss-Making Liquidation Items'
-                ],
-                'Value': [
-                    len(results),
-                    total_current_value,
-                    total_fifo_value,
-                    total_market_value,
-                    total_current_value - total_fifo_value,
-                    total_market_value - total_fifo_value,
-                    len([r for r in results if r.valuation_status == 'UNDERVALUED']),
-                    len([r for r in results if r.valuation_status == 'OVERVALUED']),
-                    len([r for r in results if r.valuation_status == 'FAIR_VALUE']),
-                    len([r for r in results if r.liquidation_feasibility == 'PROFITABLE']),
-                    len([r for r in results if r.liquidation_feasibility == 'LOSS_MAKING'])
-                ]
-            }
-            
-            summary_df = pd.DataFrame(summary_data)
-            summary_df.to_excel(writer, sheet_name='Executive_Summary', index=False)
+        # Save to Excel with timestamp to avoid permission conflicts
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'inventory_valuation_analysis_{timestamp}.xlsx'
+        
+        try:
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                items_df.to_excel(writer, sheet_name='FIFO_Valuation_Analysis', index=False)
+                category_df.to_excel(writer, sheet_name='Category_Valuation', index=False)
+                
+                # Executive summary
+                total_current_value = sum([r.current_stock_value for r in results])
+                total_fifo_value = sum([r.fifo_stock_value for r in results])
+                total_market_value = sum([r.market_value for r in results])
+                
+                summary_data = {
+                    'Metric': [
+                        'Total Items Analyzed',
+                        'Total Current Book Value',
+                        'Total FIFO Book Value',
+                        'Total Market Value',
+                        'Valuation Difference (Current vs FIFO)',
+                        'Market Premium over FIFO',
+                        'Undervalued Items',
+                        'Overvalued Items',
+                        'Fair Valued Items',
+                        'Profitable Liquidation Items',
+                        'Loss-Making Liquidation Items'
+                    ],
+                    'Value': [
+                        len(results),
+                        total_current_value,
+                        total_fifo_value,
+                        total_market_value,
+                        total_current_value - total_fifo_value,
+                        total_market_value - total_fifo_value,
+                        len([r for r in results if r.valuation_status == 'UNDERVALUED']),
+                        len([r for r in results if r.valuation_status == 'OVERVALUED']),
+                        len([r for r in results if r.valuation_status == 'FAIR_VALUE']),
+                        len([r for r in results if r.liquidation_feasibility == 'PROFITABLE']),
+                        len([r for r in results if r.liquidation_feasibility == 'LOSS_MAKING'])
+                    ]
+                }
+                
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Executive_Summary', index=False)
+                
+        except PermissionError:
+            print(f"Warning: Could not write to {filename}. File may be open in another application.")
+            return None
+        except Exception as e:
+            print(f"Error writing Excel file: {str(e)}")
+            return None
 
 def main():
     """Demo execution of Inventory Valuation Analysis"""

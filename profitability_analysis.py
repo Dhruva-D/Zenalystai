@@ -512,8 +512,13 @@ class ProfitabilityAnalysisEngine:
         """Export analysis results to Excel with formatting"""
         logger.info("📊 Exporting profitability analysis to Excel...")
         
+        # Add timestamp to filename to avoid permission conflicts
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamped_filename = f'profitability_analysis_{timestamp}.xlsx'
+        
         try:
-            with pd.ExcelWriter(self.output_file, engine='openpyxl') as writer:
+            with pd.ExcelWriter(timestamped_filename, engine='openpyxl') as writer:
                 
                 # Executive Summary Sheet
                 self._create_executive_summary_sheet(writer, result)
@@ -530,12 +535,15 @@ class ProfitabilityAnalysisEngine:
                 # Recommendations Sheet
                 self._create_recommendations_sheet(writer, result)
             
-            logger.info(f"✅ Analysis exported to: {self.output_file}")
-            return self.output_file
+            logger.info(f"✅ Analysis exported to: {timestamped_filename}")
+            return timestamped_filename
             
+        except PermissionError:
+            logger.error(f"❌ Permission denied writing to {timestamped_filename}. File may be open in another application.")
+            return None
         except Exception as e:
             logger.error(f"❌ Error exporting to Excel: {e}")
-            raise
+            return None
     
     def _create_executive_summary_sheet(self, writer, result: ProfitabilityAnalysisResult):
         """Create executive summary sheet"""

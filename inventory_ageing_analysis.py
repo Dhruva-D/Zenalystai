@@ -318,10 +318,14 @@ class InventoryAgeingAnalysisEngine:
         
         buckets_df = pd.DataFrame(buckets_data)
         
-        # Save to Excel
-        with pd.ExcelWriter('inventory_ageing_analysis.xlsx', engine='openpyxl') as writer:
-            items_df.to_excel(writer, sheet_name='Item_Ageing_Analysis', index=False)
-            buckets_df.to_excel(writer, sheet_name='Ageing_Buckets', index=False)
+        # Save to Excel with error handling
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'inventory_ageing_analysis_{timestamp}.xlsx'
+        
+        try:
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                items_df.to_excel(writer, sheet_name='Item_Ageing_Analysis', index=False)
+                buckets_df.to_excel(writer, sheet_name='Ageing_Buckets', index=False)
             
             # Executive summary
             summary_data = {
@@ -351,6 +355,13 @@ class InventoryAgeingAnalysisEngine:
             
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name='Executive_Summary', index=False)
+                
+        except PermissionError:
+            print(f"Warning: Could not write to {filename}. File may be open in another application.")
+            return None
+        except Exception as e:
+            print(f"Error writing Excel file: {str(e)}")
+            return None
 
 def main():
     """Demo execution of Inventory Ageing Analysis"""
