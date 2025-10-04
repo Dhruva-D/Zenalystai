@@ -123,7 +123,7 @@ export const AnalyzeData = () => {
               transition={{ delay: 0.2 }}
               className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
             >
-              {analysisTypes.map((type, index) => (
+              {/* {analysisTypes.map((type, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
@@ -149,7 +149,7 @@ export const AnalyzeData = () => {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+              ))} */}
             </motion.div>
 
             {/* Main Analysis Card */}
