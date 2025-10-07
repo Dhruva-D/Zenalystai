@@ -12,8 +12,9 @@
  * All charts, progress bars, and metrics now reflect real business data!
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -129,12 +130,29 @@ const analysisCards: AnalysisCard[] = [
 ];
 
 export const AnalyzeData = () => {
+  const [searchParams] = useSearchParams();
   const [selectedAnalysis, setSelectedAnalysis] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [aiInsightsType, setAIInsightsType] = useState<string>('profitability');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string>("Your Business");
   const { toast } = useToast();
+
+  // Get session data from URL params
+  useEffect(() => {
+    const sessionFromUrl = searchParams.get('session_id');
+    const companyFromUrl = searchParams.get('company');
+    
+    if (sessionFromUrl) {
+      setSessionId(sessionFromUrl);
+    }
+    
+    if (companyFromUrl) {
+      setCompanyName(decodeURIComponent(companyFromUrl));
+    }
+  }, [searchParams]);
 
   const handleCardClick = async (card: AnalysisCard) => {
     setSelectedAnalysis(card.id);
@@ -143,12 +161,21 @@ export const AnalyzeData = () => {
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}${card.endpoint}`, {
+      
+      // Add session_id as query parameter if available
+      const url = new URL(`${apiUrl}${card.endpoint}`);
+      if (sessionId) {
+        url.searchParams.append('session_id', sessionId);
+      }
+      
+      const response = await fetch(url.toString(), {
         method: card.method,
         headers: {
           'Content-Type': 'application/json',
         },
-        ...(card.method === 'POST' && { body: JSON.stringify({}) }),
+        ...(card.method === 'POST' && { 
+          body: JSON.stringify(sessionId ? { session_id: sessionId } : {}) 
+        }),
       });
 
       if (!response.ok) {
@@ -2007,11 +2034,21 @@ export const AnalyzeData = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-8"
           >
+            {sessionId && (
+              <div className="mb-4">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  Analyzing data for: {companyName}
+                </span>
+              </div>
+            )}
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Business Intelligence Analysis
+              {sessionId ? `${companyName} - Business Intelligence Analysis` : "Business Intelligence Analysis"}
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Choose from our comprehensive analysis modules to get detailed insights into your business data
+              {sessionId 
+                ? "Your uploaded data has been processed. Choose an analysis module to explore insights from your business data."
+                : "Choose from our comprehensive analysis modules to get detailed insights into your business data"
+              }
             </p>
           </motion.div>
 

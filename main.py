@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File as FastAPIFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 import uvicorn
@@ -6,6 +6,9 @@ from pathlib import Path
 import json
 from datetime import datetime
 import pandas as pd
+import os
+import shutil
+from typing import List
 
 # Import all extractors
 from backend.extractors.final_po_extractor import FinalPurchaseOrderParser
@@ -27,9 +30,9 @@ from backend.analysis.profitability_analysis import ProfitabilityAnalysisEngine
 from backend.core.gemini_ai_insights import GeminiBusinessIntelligence
 
 app = FastAPI(
-    title="ABC Book House - Comprehensive ETL & Analytics API", 
+    title="Zenalyst AI - Dynamic Business Intelligence & Analytics API", 
     version="2.0.0",
-    description="Complete document processing and 3-way matching system"
+    description="Complete document processing and analytics system for any business"
 )
 
 # =============================================================================
@@ -168,11 +171,15 @@ matching_engine = ThreeWayMatchingEngine()
 @app.get("/")
 async def root():
     return {
-        "message": "ABC Book House - Comprehensive ETL & Analytics API",
+        "message": "Zenalyst AI - Dynamic Business Intelligence & Analytics API",
         "version": "2.0.0",
         "status": "active",
         "timestamp": datetime.now().isoformat(),
         "modules": {
+            "file_upload": {
+                "upload_files": "/upload/files",
+                "get_upload_status": "/upload/status/{session_id}"
+            },
             "document_extraction": {
                 "purchase_orders": "/extract/purchase-orders",
                 "grn_records": "/extract/grn",
@@ -193,14 +200,225 @@ async def root():
         }
     }
 
+# =============================================================================
+# FILE UPLOAD MANAGEMENT
+# =============================================================================
+
+# Global storage for user sessions and uploaded files
+user_sessions = {}
+
+class UploadSession:
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.upload_path = Path(f"uploads/{session_id}")
+        self.upload_path.mkdir(parents=True, exist_ok=True)
+        self.uploaded_files = []
+        self.processed_files = {}
+        self.company_name = None
+        self.analysis_results = {}
+        self.created_at = datetime.now()
+    
+    def add_file(self, filename: str, file_type: str, file_path: str):
+        self.uploaded_files.append({
+            "filename": filename,
+            "file_type": file_type,
+            "file_path": file_path,
+            "uploaded_at": datetime.now().isoformat()
+        })
+    
+    def set_company_name(self, name: str):
+        self.company_name = name
+
+@app.post("/upload/files")
+async def upload_files(
+    files: List[UploadFile] = FastAPIFile(...),
+    company_name: str = Form(None),
+    session_id: str = Form(None)
+):
+    """Upload multiple files and create a processing session"""
+    try:
+        # Generate session ID if not provided
+        if not session_id:
+            session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(user_sessions)}"
+        
+        # Create or get session
+        if session_id not in user_sessions:
+            user_sessions[session_id] = UploadSession(session_id)
+        
+        session = user_sessions[session_id]
+        
+        # Set company name if provided
+        if company_name:
+            session.set_company_name(company_name)
+        
+        uploaded_file_info = []
+        
+        for file in files:
+            if file.filename:
+                # Determine file type based on extension
+                file_extension = Path(file.filename).suffix.lower()
+                file_type = "unknown"
+                
+                if file_extension in ['.xlsx', '.xls']:
+                    file_type = "excel"
+                elif file_extension == '.pdf':
+                    file_type = "pdf"
+                elif file_extension == '.csv':
+                    file_type = "csv"
+                else:
+                    continue  # Skip unsupported files
+                
+                # Save file
+                file_path = session.upload_path / file.filename
+                with open(file_path, "wb") as buffer:
+                    content = await file.read()
+                    buffer.write(content)
+                
+                # Add to session
+                session.add_file(file.filename, file_type, str(file_path))
+                
+                uploaded_file_info.append({
+                    "filename": file.filename,
+                    "file_type": file_type,
+                    "size": len(content)
+                })
+        
+        return {
+            "status": "success",
+            "message": f"Successfully uploaded {len(uploaded_file_info)} files",
+            "session_id": session_id,
+            "company_name": session.company_name,
+            "uploaded_files": uploaded_file_info,
+            "redirect_url": f"/analyze?session_id={session_id}"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.get("/upload/status/{session_id}")
+async def get_upload_status(session_id: str):
+    """Get upload session status and file information"""
+    if session_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = user_sessions[session_id]
+    
+    return {
+        "session_id": session_id,
+        "company_name": session.company_name,
+        "uploaded_files": session.uploaded_files,
+        "created_at": session.created_at.isoformat(),
+        "total_files": len(session.uploaded_files)
+    }
+
+@app.post("/process/uploaded-files/{session_id}")
+async def process_uploaded_files(session_id: str, background_tasks: BackgroundTasks):
+    """Process all uploaded files and generate analysis"""
+    if session_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    try:
+        session = user_sessions[session_id]
+        upload_dir = str(session.upload_path)
+        
+        # Process different file types
+        results = {}
+        
+        # Check what types of files we have
+        pdf_files = [f for f in session.uploaded_files if f['file_type'] == 'pdf']
+        excel_files = [f for f in session.uploaded_files if f['file_type'] == 'excel']
+        
+        # Extract data based on available files
+        if pdf_files:
+            try:
+                # Extract Purchase Orders
+                parser = FinalPurchaseOrderParser()
+                po_df, po_items_df = parser.process_all_purchase_orders(upload_dir)
+                if len(po_df) > 0:
+                    results['purchase_orders'] = {
+                        "count": len(po_df),
+                        "items": len(po_items_df),
+                        "value": float(po_df['total_amount'].sum())
+                    }
+                    session.processed_files['purchase_orders'] = (po_df, po_items_df)
+            except Exception as e:
+                print(f"PO extraction error: {e}")
+            
+            try:
+                # Extract GRN data
+                grn_extractor = GRNExtractor()
+                grn_df, grn_items_df = grn_extractor.process_all_grns(upload_dir)
+                if len(grn_df) > 0:
+                    results['grn'] = {
+                        "count": len(grn_df),
+                        "items": len(grn_items_df),
+                        "value": float(grn_df['total_amount'].sum()) if 'total_amount' in grn_df.columns else 0
+                    }
+                    session.processed_files['grn'] = (grn_df, grn_items_df)
+            except Exception as e:
+                print(f"GRN extraction error: {e}")
+            
+            try:
+                # Extract Purchase Invoices
+                pi_extractor = PurchaseInvoiceExtractor()
+                pi_df, pi_items_df = pi_extractor.process_all_invoices(upload_dir)
+                if len(pi_df) > 0:
+                    results['purchase_invoices'] = {
+                        "count": len(pi_df),
+                        "items": len(pi_items_df),
+                        "value": float(pi_df['total_amount'].sum())
+                    }
+                    session.processed_files['purchase_invoices'] = (pi_df, pi_items_df)
+            except Exception as e:
+                print(f"PI extraction error: {e}")
+        
+        # If we have Excel files, try to process inventory data
+        if excel_files:
+            try:
+                for excel_file in excel_files:
+                    file_path = excel_file['file_path']
+                    # Read and store Excel data for analysis
+                    df = pd.read_excel(file_path)
+                    results['inventory_data'] = {
+                        "rows": len(df),
+                        "columns": len(df.columns),
+                        "file": excel_file['filename']
+                    }
+                    session.processed_files['inventory'] = df
+            except Exception as e:
+                print(f"Excel processing error: {e}")
+        
+        # Store results in session
+        session.analysis_results = results
+        
+        return {
+            "status": "success",
+            "message": "Files processed successfully",
+            "session_id": session_id,
+            "company_name": session.company_name or "Your Business",
+            "processing_results": results,
+            "redirect_to_analysis": True
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
 # ========================= DOCUMENT EXTRACTION ENDPOINTS =========================
 
 @app.post("/extract/purchase-orders")
-async def extract_purchase_orders():
-    """Extract all purchase orders from PDFs"""
+async def extract_purchase_orders(session_id: str = None):
+    """Extract purchase orders from uploaded files"""
     try:
-        parser = FinalPurchaseOrderParser()
-        po_df, items_df = parser.process_all_purchase_orders("data/Purchase Order")
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id]
+            # Use uploaded files
+            upload_dir = session.upload_path
+            parser = FinalPurchaseOrderParser()
+            po_df, items_df = parser.process_all_purchase_orders(str(upload_dir))
+        else:
+            # Fallback to default data for demo
+            parser = FinalPurchaseOrderParser()
+            po_df, items_df = parser.process_all_purchase_orders("data/Purchase Order")
         
         # Save to Excel
         parser.save_to_excel(po_df, items_df)
@@ -211,7 +429,8 @@ async def extract_purchase_orders():
             "purchase_orders": len(po_df),
             "items": len(items_df),
             "total_value": float(po_df['total_amount'].sum()) if len(po_df) > 0 else 0,
-            "file_generated": "zenalyst_demo_results.xlsx"
+            "file_generated": "zenalyst_demo_results.xlsx",
+            "session_id": session_id
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -943,7 +1162,7 @@ async def run_comprehensive_inventory_analysis():
 # =============================================================================
 
 @app.post("/analyze/profitability")
-async def run_profitability_analysis():
+async def run_profitability_analysis(session_id: str = None):
     """
     Run comprehensive profitability analysis
     
@@ -960,11 +1179,26 @@ async def run_profitability_analysis():
         # Initialize analysis engine
         engine = ProfitabilityAnalysisEngine()
         
+        # Determine company name and customize analysis
+        company_name = "ABC Book Store"  # Default
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id]
+            company_name = session.company_name or "Your Business"
+            print(f"📊 Running analysis for: {company_name}")
+        
         # Run analysis
         result = engine.run_profitability_analysis()
         
-        # Export to Excel
+        # Export to Excel (save to reports folder)
         output_file = engine.export_to_excel(result)
+        if output_file:
+            # Move file to reports folder if not already there
+            import shutil
+            if not output_file.startswith("reports/"):
+                new_path = f"reports/{output_file}"
+                if os.path.exists(output_file):
+                    shutil.move(output_file, new_path)
+                    output_file = new_path
         
         # Prepare response summary
         summary = {
@@ -1010,7 +1244,9 @@ async def run_profitability_analysis():
         
         return {
             "status": "success",
-            "message": "Profitability analysis completed successfully",
+            "message": f"Profitability analysis completed successfully for {company_name}",
+            "company_name": company_name,
+            "session_id": session_id,
             "summary": summary,
             "top_5_products": top_products,
             "best_vendors": best_vendors,
@@ -1696,9 +1932,10 @@ async def health_check():
     }
 
 if __name__ == "__main__":
-    print("🚀 Starting ABC Book House Comprehensive ETL & Analytics API...")
+    print("🚀 Starting Zenalyst AI - Dynamic Business Intelligence & Analytics API...")
     print("📊 Main API available at: http://localhost:8000")
     print("📋 API Documentation at: http://localhost:8000/docs")
+    print("📤 File Upload: http://localhost:8000/upload/files")
     print("🔄 3-Way Matching Dashboard at: http://localhost:8000/api/matching/dashboard")
     print("📈 PO-Invoice Verification at: http://localhost:8000/verify/po-invoice/dashboard")
     print("📦 Inventory Analysis Dashboard at: http://localhost:8000/analyze/inventory/dashboard")
