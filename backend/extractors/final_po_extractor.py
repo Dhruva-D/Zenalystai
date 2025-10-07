@@ -55,19 +55,28 @@ class FinalPurchaseOrderParser:
                 # Extract Buyer and Vendor Information with improved logic
                 self.extract_buyer_vendor_info_improved(text, po_data)
                 
-                # Extract financial information
-                subtotal_match = re.search(r'Subtotal\s*₹([\d,]+\.?\d*)', text)
-                if subtotal_match:
-                    po_data['subtotal'] = float(subtotal_match.group(1).replace(',', ''))
-                
-                gst_match = re.search(r'GST @ (\d+)%\s*₹([\d,]+\.?\d*)', text)
-                if gst_match:
-                    po_data['gst_rate'] = float(gst_match.group(1))
-                    po_data['gst_amount'] = float(gst_match.group(2).replace(',', ''))
-                
-                total_match = re.search(r'TOTAL\s*₹([\d,]+\.?\d*)', text)
-                if total_match:
-                    po_data['total_amount'] = float(total_match.group(1).replace(',', ''))
+                # Extract financial information with better error handling
+                try:
+                    subtotal_match = re.search(r'Subtotal\s*₹([\d,]+\.?\d*)', text)
+                    if subtotal_match:
+                        subtotal_str = subtotal_match.group(1).replace(',', '')
+                        po_data['subtotal'] = float(subtotal_str) if subtotal_str.replace('.', '').isdigit() else 0.0
+                    
+                    gst_match = re.search(r'GST @ (\d+)%\s*₹([\d,]+\.?\d*)', text)
+                    if gst_match:
+                        po_data['gst_rate'] = float(gst_match.group(1))
+                        gst_amount_str = gst_match.group(2).replace(',', '')
+                        po_data['gst_amount'] = float(gst_amount_str) if gst_amount_str.replace('.', '').isdigit() else 0.0
+                    
+                    total_match = re.search(r'TOTAL\s*₹([\d,]+\.?\d*)', text)
+                    if total_match:
+                        total_str = total_match.group(1).replace(',', '')
+                        po_data['total_amount'] = float(total_str) if total_str.replace('.', '').isdigit() else 0.0
+                except (ValueError, AttributeError) as e:
+                    print(f"Warning: Error parsing financial data: {e}")
+                    po_data['subtotal'] = 0.0
+                    po_data['gst_amount'] = 0.0
+                    po_data['total_amount'] = 0.0
                 
                 # Extract items using text parsing
                 items = self.extract_items_from_text(text)
@@ -168,11 +177,20 @@ class FinalPurchaseOrderParser:
             match = re.match(item_pattern, line)
             
             if match:
-                sno = match.group(1)
-                description = match.group(2).strip()
-                qty = int(match.group(3))
-                rate = float(match.group(4).replace(',', ''))
-                amount = float(match.group(5).replace(',', ''))
+                try:
+                    sno = match.group(1)
+                    description = match.group(2).strip()
+                    qty = int(match.group(3))
+                    rate_str = match.group(4).replace(',', '')
+                    amount_str = match.group(5).replace(',', '')
+                    
+                    # Safe conversion to float with validation
+                    rate = float(rate_str) if rate_str and rate_str.replace('.', '').isdigit() else 0.0
+                    amount = float(amount_str) if amount_str and amount_str.replace('.', '').isdigit() else 0.0
+                except (ValueError, AttributeError) as e:
+                    print(f"Warning: Error parsing item data in line '{line}': {e}")
+                    i += 1
+                    continue
                 
                 # Look for title in previous line
                 title = ""
@@ -292,13 +310,39 @@ class FinalPurchaseOrderParser:
                     f"{po_df['total_amount'].sum():,.2f}" if len(po_df) > 0 else 0,
                     f"{po_df['total_amount'].mean():,.2f}" if len(po_df) > 0 else 0,
                     po_df['vendor_name'].nunique() if len(po_df) > 0 else 0,
-                    f"{po_df['po_date'].min()} to {po_df['po_date'].max()}" if len(po_df) > 0 else "N/A"
+                    self._get_date_range(po_df) if len(po_df) > 0 else "N/A"
                 ]
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name='Summary', index=False)
         
         print(f"Data saved to {filename}")
+    
+    def _get_date_range(self, po_df):
+        """Safely get date range from po_date column handling mixed data types"""
+        try:
+            # Filter out non-date values (NaN, None, empty strings)
+            valid_dates = po_df['po_date'].dropna()
+            valid_dates = valid_dates[valid_dates != '']
+            valid_dates = valid_dates[valid_dates != 'None']
+            
+            if len(valid_dates) == 0:
+                return "N/A"
+            
+            # Convert to datetime if needed
+            date_series = pd.to_datetime(valid_dates, errors='coerce')
+            date_series = date_series.dropna()
+            
+            if len(date_series) == 0:
+                return "N/A"
+                
+            min_date = date_series.min().strftime('%Y-%m-%d')
+            max_date = date_series.max().strftime('%Y-%m-%d')
+            return f"{min_date} to {max_date}"
+            
+        except Exception as e:
+            print(f"Warning: Error calculating date range: {e}")
+            return "N/A"
 
 def main():
     parser = FinalPurchaseOrderParser()

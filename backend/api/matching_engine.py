@@ -160,11 +160,21 @@ class ThreeWayMatchingEngine:
             # Calculate quantities
             po_items = self.po_items_df[self.po_items_df['po_number'] == po_number]
             grn_items = self.grn_items_df[self.grn_items_df['related_po'] == po_number]
-            invoice_items = self.pi_items_df[self.pi_items_df['related_po'] == po_number]
+            
+            # Handle empty PI items DataFrame safely
+            if len(self.pi_items_df) > 0 and 'related_po' in self.pi_items_df.columns:
+                invoice_items = self.pi_items_df[self.pi_items_df['related_po'] == po_number]
+            else:
+                invoice_items = pd.DataFrame()  # Empty DataFrame
             
             ordered_qty = po_items['quantity'].sum() if len(po_items) > 0 else 0
             received_qty = grn_items['qty_received'].sum() if len(grn_items) > 0 else 0
-            billed_qty = invoice_items['qty_billed'].sum() if len(invoice_items) > 0 else 0
+            
+            # Handle billed quantity safely
+            if len(invoice_items) > 0 and 'qty_billed' in invoice_items.columns:
+                billed_qty = invoice_items['qty_billed'].sum()
+            else:
+                billed_qty = 0
             
             # Create matching result (initialize with default values first)
             result = MatchingResult(

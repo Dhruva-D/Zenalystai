@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
-import { UploadData } from "./pages/UploadData";
 import { AnalyzeData } from "./pages/AnalyzeData";
 import { About } from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -21,10 +20,10 @@ const App = () => (
         <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/upload" element={<UploadData />} />
             <Route path="/analyze" element={<AnalyzeData />} />
             <Route path="/about" element={<About />} />
             {/* Handle potential old routes with redirects */}
+            <Route path="/upload" element={<Navigate to="/analyze" replace />} />
             <Route path="/index.html" element={<Navigate to="/" replace />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

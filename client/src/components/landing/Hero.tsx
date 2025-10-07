@@ -91,9 +91,9 @@ export const Hero = () => {
               <Button 
                 size="default" 
                 className="bg-gradient-cta text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                onClick={() => window.location.href = '/upload'}
+                onClick={() => window.location.href = '/analyze'}
               >
-                Upload Your Data
+                Start Analysis
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
               

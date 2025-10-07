@@ -1,23 +1,21 @@
 /**
- * AnalyzeData.tsx - Dynamic Analytics Dashboard
+ * AnalyzeData.tsx - Unified Upload & Analytics Dashboard
  * 
- * ✅ FIXED: All sections now use dynamic data from APIs instead of hardcoded values
- * - 3-Way Match Summary: Uses real matching data from /analytics/matching
- * - Verification: Uses dynamic procurement data from /verify/po-invoice  
- * - Inventory Cost: Uses dynamic cost analysis from /analyze/inventory-cost
- * - Inventory Ageing: Uses dynamic ageing data from /analyze/inventory-ageing
- * - Inventory Valuation: Uses dynamic valuation from /analyze/inventory-valuation
- * - Profitability: Uses dynamic profit analysis from /analyze/profitability
- * 
- * All charts, progress bars, and metrics now reflect real business data!
+ * ✅ NEW WORKFLOW: Each analysis section now handles its own file uploads
+ * - Users can upload files specific to each analysis type
+ * - Multiple files supported for each document type
+ * - Direct integration of upload and analysis workflows
+ * - No separate upload page needed
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   BarChart3, 
   ArrowRight, 
@@ -32,12 +30,21 @@ import {
   Package,
   Eye,
   ArrowLeft,
-  Brain
+  Brain,
+  Upload,
+  X,
+  Plus,
+  File,
+  Loader2,
+  DollarSign,
+  Users,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Navbar, FloatingScrollToTop } from "@/components/layout";
 import { AIInsightsPanel } from "@/components/analytics";
 import ChatButton from "@/components/chat/ChatButton";
+import { createApiEndpoint } from "@/lib/api";
 import {
   BarChart,
   Bar,
@@ -55,6 +62,14 @@ import {
   AreaChart,
 } from "recharts";
 
+interface FileUploadSection {
+  id: string;
+  title: string;
+  description: string;
+  acceptedTypes: string;
+  multiple: boolean;
+}
+
 interface AnalysisCard {
   id: string;
   title: string;
@@ -64,6 +79,7 @@ interface AnalysisCard {
   bgColor: string;
   endpoint: string;
   method: 'GET' | 'POST';
+  fileRequirements: FileUploadSection[];
 }
 
 const analysisCards: AnalysisCard[] = [
@@ -76,6 +92,29 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-blue-50',
     endpoint: '/analytics/matching',
     method: 'GET',
+    fileRequirements: [
+      {
+        id: 'purchase-orders',
+        title: 'Purchase Orders',
+        description: 'Upload purchase order documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      },
+      {
+        id: 'grn-records',
+        title: 'GRN Records',
+        description: 'Upload Goods Receipt Note documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      },
+      {
+        id: 'purchase-invoices',
+        title: 'Purchase Invoices',
+        description: 'Upload vendor invoice documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
   {
     id: 'verification',
@@ -86,6 +125,22 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-green-50',
     endpoint: '/verify/po-invoice',
     method: 'POST',
+    fileRequirements: [
+      {
+        id: 'purchase-orders',
+        title: 'Purchase Orders',
+        description: 'Upload purchase order documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      },
+      {
+        id: 'purchase-invoices',
+        title: 'Purchase Invoices',
+        description: 'Upload vendor invoice documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
   {
     id: 'inventory-cost',
@@ -96,6 +151,22 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-purple-50',
     endpoint: '/analyze/inventory-cost',
     method: 'POST',
+    fileRequirements: [
+      {
+        id: 'inventory-register',
+        title: 'Inventory Register',
+        description: 'Upload inventory register file (Excel format)',
+        acceptedTypes: '.xlsx,.xls,.csv',
+        multiple: false
+      },
+      {
+        id: 'purchase-invoices',
+        title: 'Purchase Invoices',
+        description: 'Upload vendor invoice documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
   {
     id: 'inventory-ageing',
@@ -106,6 +177,22 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-orange-50',
     endpoint: '/analyze/inventory-ageing',
     method: 'POST',
+    fileRequirements: [
+      {
+        id: 'inventory-register',
+        title: 'Inventory Register',
+        description: 'Upload inventory register file (Excel format)',
+        acceptedTypes: '.xlsx,.xls,.csv',
+        multiple: false
+      },
+      {
+        id: 'sales-invoices',
+        title: 'Sales Invoices',
+        description: 'Upload sales invoice documents (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
   {
     id: 'inventory-valuation',
@@ -116,6 +203,22 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-indigo-50',
     endpoint: '/analyze/inventory-valuation',
     method: 'POST',
+    fileRequirements: [
+      {
+        id: 'inventory-register',
+        title: 'Inventory Register',
+        description: 'Upload inventory register file (Excel format)',
+        acceptedTypes: '.xlsx,.xls,.csv',
+        multiple: false
+      },
+      {
+        id: 'purchase-invoices',
+        title: 'Purchase Invoices',
+        description: 'Upload vendor invoice documents for cost tracking (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
   {
     id: 'profitability',
@@ -126,6 +229,29 @@ const analysisCards: AnalysisCard[] = [
     bgColor: 'bg-red-50',
     endpoint: '/analyze/profitability',
     method: 'POST',
+    fileRequirements: [
+      {
+        id: 'inventory-register',
+        title: 'Inventory Register',
+        description: 'Upload inventory register file (Excel format)',
+        acceptedTypes: '.xlsx,.xls,.csv',
+        multiple: false
+      },
+      {
+        id: 'purchase-invoices',
+        title: 'Purchase Invoices',
+        description: 'Upload vendor invoice documents for cost tracking (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      },
+      {
+        id: 'sales-invoices',
+        title: 'Sales Invoices',
+        description: 'Upload sales invoice documents for revenue tracking (PDF format)',
+        acceptedTypes: '.pdf',
+        multiple: true
+      }
+    ]
   },
 ];
 
@@ -138,6 +264,13 @@ export const AnalyzeData = () => {
   const [aiInsightsType, setAIInsightsType] = useState<string>('profitability');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("Your Business");
+  
+  // File upload states
+  const [uploadedFiles, setUploadedFiles] = useState<{[key: string]: File[]}>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState<'upload' | 'confirm' | 'analyze'>('upload');
+  const [dragActive, setDragActive] = useState<string | null>(null);
+  
   const { toast } = useToast();
 
   // Get session data from URL params
@@ -154,59 +287,154 @@ export const AnalyzeData = () => {
     }
   }, [searchParams]);
 
-  const handleCardClick = async (card: AnalysisCard) => {
+  const handleCardClick = (card: AnalysisCard) => {
     setSelectedAnalysis(card.id);
-    setLoading(true);
     setAnalysisData(null);
-
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      
-      // Add session_id as query parameter if available
-      const url = new URL(`${apiUrl}${card.endpoint}`);
-      if (sessionId) {
-        url.searchParams.append('session_id', sessionId);
-      }
-      
-      const response = await fetch(url.toString(), {
-        method: card.method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        ...(card.method === 'POST' && { 
-          body: JSON.stringify(sessionId ? { session_id: sessionId } : {}) 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${card.title}`);
-      }
-
-      const data = await response.json();
-      console.log('Received analysis data:', data);
-      console.log('ageing_buckets type:', typeof data?.ageing_buckets);
-      console.log('ageing_buckets content:', data?.ageing_buckets);
-      setAnalysisData(data);
-      
-      toast({
-        title: "Analysis Complete",
-        description: `${card.title} analysis has been completed successfully.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Analysis Error",
-        description: `Failed to execute ${card.title}. Please check your backend connection.`,
-        variant: "destructive",
-      });
-      console.error('Analysis error:', error);
-    } finally {
-      setLoading(false);
-    }
+    setUploadedFiles({});
+    setUploadStep('upload');
   };
 
   const handleBackToCards = () => {
     setSelectedAnalysis(null);
     setAnalysisData(null);
+    setUploadedFiles({});
+    setUploadStep('upload');
+  };
+
+  // File upload handlers
+  const handleDrag = useCallback((e: React.DragEvent, sectionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(sectionId);
+    } else if (e.type === "dragleave") {
+      setDragActive(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, sectionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(null);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const newFiles = Array.from(e.dataTransfer.files);
+      setUploadedFiles(prev => ({
+        ...prev,
+        [sectionId]: [...(prev[sectionId] || []), ...newFiles]
+      }));
+    }
+  }, []);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, sectionId: string) => {
+    if (e.target.files && e.target.files[0]) {
+      const newFiles = Array.from(e.target.files);
+      setUploadedFiles(prev => ({
+        ...prev,
+        [sectionId]: [...(prev[sectionId] || []), ...newFiles]
+      }));
+    }
+  };
+
+  const removeFile = (sectionId: string, fileIndex: number) => {
+    setUploadedFiles(prev => ({
+      ...prev,
+      [sectionId]: prev[sectionId]?.filter((_, i) => i !== fileIndex) || []
+    }));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const processFilesAndAnalyze = async () => {
+    if (!selectedAnalysis) return;
+    
+    setIsUploading(true);
+    setUploadStep('analyze');
+    
+    try {
+      // Upload files first
+      const formData = new FormData();
+      
+      Object.entries(uploadedFiles).forEach(([sectionId, files]) => {
+        files.forEach(file => {
+          formData.append('files', file);
+        });
+      });
+      
+      if (companyName.trim()) {
+        formData.append('company_name', companyName.trim());
+      } else {
+        formData.append('company_name', 'Your Business');
+      }
+      
+      const uploadResponse = await fetch(createApiEndpoint('/upload/files'), {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      const newSessionId = uploadResult.session_id;
+      setSessionId(newSessionId);
+      
+      // Process uploaded files
+      const processResponse = await fetch(createApiEndpoint(`/process/uploaded-files/${newSessionId}`), {
+        method: 'POST',
+      });
+      
+      if (!processResponse.ok) {
+        throw new Error('Processing failed');
+      }
+      
+      // Now run the analysis
+      const selectedCard = analysisCards.find(card => card.id === selectedAnalysis);
+      if (!selectedCard) return;
+      
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const url = new URL(`${apiUrl}${selectedCard.endpoint}`);
+      url.searchParams.append('session_id', newSessionId);
+      
+      const response = await fetch(url.toString(), {
+        method: selectedCard.method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        ...(selectedCard.method === 'POST' && { 
+          body: JSON.stringify({ session_id: newSessionId }) 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${selectedCard.title}`);
+      }
+
+      const data = await response.json();
+      setAnalysisData(data);
+      
+      toast({
+        title: "Analysis Complete",
+        description: `${selectedCard.title} analysis has been completed successfully.`,
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Analysis Error",
+        description: `Failed to process files and run analysis. Please try again.`,
+        variant: "destructive",
+      });
+      console.error('Analysis error:', error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const downloadReport = () => {
@@ -226,6 +454,311 @@ export const AnalyzeData = () => {
       title: "Report Downloaded",
       description: "Analysis report has been downloaded successfully.",
     });
+  };
+
+  const renderUploadInterface = () => {
+    if (!selectedAnalysis) return null;
+    
+    const selectedCard = analysisCards.find(card => card.id === selectedAnalysis);
+    if (!selectedCard) return null;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="space-y-6"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button onClick={handleBackToCards} variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Analysis Options
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-lg ${selectedCard.bgColor}`}>
+                <div className={selectedCard.color}>
+                  {selectedCard.icon}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{selectedCard.title}</h2>
+                <p className="text-muted-foreground">{selectedCard.description}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Company name input */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Information</CardTitle>
+            <CardDescription>
+              Enter your company name for personalized reports
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Company Name</Label>
+              <Input
+                id="company-name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Enter your company name"
+                className="max-w-md"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* File upload sections */}
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Required Documents</h3>
+            <p className="text-muted-foreground mb-6">
+              Please upload the following documents for analysis. You can upload multiple files for each category.
+            </p>
+          </div>
+
+          {selectedCard.fileRequirements.map((requirement) => (
+            <Card key={requirement.id} className="border-2 border-dashed border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  {requirement.title}
+                  {requirement.multiple && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      Multiple files allowed
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>{requirement.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Drag and drop area */}
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    dragActive === requirement.id
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onDragEnter={(e) => handleDrag(e, requirement.id)}
+                  onDragLeave={(e) => handleDrag(e, requirement.id)}
+                  onDragOver={(e) => handleDrag(e, requirement.id)}
+                  onDrop={(e) => handleDrop(e, requirement.id)}
+                >
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">
+                    Drop files here or click to browse
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Accepted formats: {requirement.acceptedTypes}
+                  </p>
+                  <input
+                    type="file"
+                    accept={requirement.acceptedTypes}
+                    multiple={requirement.multiple}
+                    onChange={(e) => handleFileInput(e, requirement.id)}
+                    className="hidden"
+                    id={`file-input-${requirement.id}`}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => document.getElementById(`file-input-${requirement.id}`)?.click()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Choose Files
+                  </Button>
+                </div>
+
+                {/* Uploaded files list */}
+                {uploadedFiles[requirement.id] && uploadedFiles[requirement.id].length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm text-gray-700">
+                      Uploaded Files ({uploadedFiles[requirement.id].length})
+                    </h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {uploadedFiles[requirement.id].map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-2">
+                            <File className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium">{file.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {formatFileSize(file.size)}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(requirement.id, index)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-4 pt-6 border-t">
+          <Button
+            onClick={() => setUploadStep('confirm')}
+            disabled={Object.keys(uploadedFiles).length === 0}
+            className="px-8"
+          >
+            Review Files
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderConfirmInterface = () => {
+    if (!selectedAnalysis) return null;
+    
+    const selectedCard = analysisCards.find(card => card.id === selectedAnalysis);
+    if (!selectedCard) return null;
+
+    const totalFiles = Object.values(uploadedFiles).reduce((sum, files) => sum + files.length, 0);
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="space-y-6"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => setUploadStep('upload')} 
+              variant="outline" 
+              size="sm"
+              disabled={isUploading}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Upload
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-lg ${selectedCard.bgColor}`}>
+                <div className={selectedCard.color}>
+                  {selectedCard.icon}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Confirm & Analyze</h2>
+                <p className="text-muted-foreground">Review your uploaded files and start analysis</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Files summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Files Summary</CardTitle>
+            <CardDescription>
+              {totalFiles} files uploaded for {selectedCard.title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {selectedCard.fileRequirements.map((requirement) => {
+              const files = uploadedFiles[requirement.id] || [];
+              return (
+                <div key={requirement.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">{requirement.title}</h4>
+                    <span className="text-sm text-gray-500">
+                      {files.length} file{files.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {files.length > 0 ? (
+                    <div className="space-y-1">
+                      {files.map((file, index) => (
+                        <div key={index} className="text-sm text-gray-600 flex items-center gap-2">
+                          <File className="h-3 w-3" />
+                          {file.name} ({formatFileSize(file.size)})
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-red-500">No files uploaded</p>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Analysis information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>What happens next?</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Files will be processed and extracted</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Data will be analyzed using advanced algorithms</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Comprehensive report will be generated</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">AI insights will be provided</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Action buttons */}
+        <div className="flex justify-between pt-6 border-t">
+          <Button
+            variant="outline"
+            onClick={() => setUploadStep('upload')}
+            disabled={isUploading}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Modify Files
+          </Button>
+          <Button
+            onClick={processFilesAndAnalyze}
+            disabled={isUploading || totalFiles === 0}
+            className="px-8"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                Start Analysis
+                <BarChart3 className="h-4 w-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
+      </motion.div>
+    );
   };
 
   const renderAnalysisResults = () => {
@@ -313,11 +846,13 @@ export const AnalyzeData = () => {
   };
 
   const renderThreeWayMatching = () => {
-    // Sample data - replace with actual analysisData
+    // Use actual data from API response
+    const dashboard = analysisData?.dashboard || {};
     const matchingData = [
-      { name: 'Perfect Matches', value: analysisData?.summary?.total_matches || 245, color: '#10B981' },
-      { name: 'Discrepancies', value: analysisData?.summary?.discrepancies || 35, color: '#F59E0B' },
-      { name: 'Pending', value: analysisData?.summary?.pending || 20, color: '#6B7280' },
+      { name: 'Fully Matched', value: dashboard.fully_matched || 0, color: '#10B981' },
+      { name: 'Exceptions', value: dashboard.exceptions || 0, color: '#F59E0B' },
+      { name: 'Pending GRNs', value: dashboard.pending_grns || 0, color: '#6B7280' },
+      { name: 'Pending Invoices', value: dashboard.pending_invoices || 0, color: '#8B5CF6' },
     ];
 
     // Use trend data from API if available
@@ -342,14 +877,14 @@ export const AnalyzeData = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-600">
-                {analysisData?.summary?.total_matches || 245}
+                {dashboard.total_pos || 0}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                PO-GRN-Invoice matches
+                Total Purchase Orders
               </p>
               <div className="mt-2">
-                <Progress value={analysisData?.summary?.match_percentage || 85} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">{analysisData?.summary?.match_percentage || 85}% of total documents</p>
+                <Progress value={dashboard.match_rate || 0} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">{dashboard.match_rate?.toFixed(1) || 0}% match rate</p>
               </div>
             </CardContent>
           </Card>
@@ -363,14 +898,14 @@ export const AnalyzeData = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-amber-600">
-                {analysisData?.summary?.discrepancies || 35}
+                {dashboard.exceptions || 0}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Quantity mismatches found
+                Total exceptions found
               </p>
               <div className="mt-2">
-                <Progress value={analysisData?.summary?.discrepancy_percentage || 12} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">{analysisData?.summary?.discrepancy_percentage || 12}% discrepancy rate</p>
+                <Progress value={(dashboard.exceptions / Math.max(dashboard.total_pos, 1)) * 100} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">{((dashboard.exceptions / Math.max(dashboard.total_pos, 1)) * 100).toFixed(1)}% exception rate</p>
               </div>
             </CardContent>
           </Card>
@@ -379,90 +914,411 @@ export const AnalyzeData = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-green-700 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Match Rate
+                Total Value
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-600">
-                {analysisData?.summary?.match_percentage || 93}%
+                ₹{dashboard.total_po_value?.toLocaleString() || 0}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Overall accuracy
+                Total Purchase Order value
               </p>
               <div className="mt-2">
-                <Progress value={93} className="h-2" />
-                <p className="text-xs text-green-600 mt-1">↗ +2% from last month</p>
+                <p className="text-xs text-green-600 mt-1">✓ Using uploaded file data</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pie Chart */}
-          <Card>
+        {/* Advanced Business Intelligence Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          
+          {/* 1. Exception Severity Analysis */}
+          <Card className="xl:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Match Distribution
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                Exception Severity Analysis
               </CardTitle>
+              <CardDescription>Risk-based exception prioritization</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
-                    data={matchingData}
+                    data={[
+                      { name: 'Critical', value: dashboard.critical_exceptions || 0, color: '#DC2626' },
+                      { name: 'High', value: dashboard.high_exceptions || 0, color: '#EA580C' },
+                      { name: 'Medium', value: dashboard.medium_exceptions || 0, color: '#CA8A04' },
+                      { name: 'Low', value: dashboard.low_exceptions || 0, color: '#65A30D' }
+                    ].filter(item => item.value > 0)}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
+                    innerRadius={50}
+                    outerRadius={100}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
                   >
-                    {matchingData.map((entry, index) => (
+                    {[
+                      { name: 'Critical', value: dashboard.critical_exceptions || 0, color: '#DC2626' },
+                      { name: 'High', value: dashboard.high_exceptions || 0, color: '#EA580C' },
+                      { name: 'Medium', value: dashboard.medium_exceptions || 0, color: '#CA8A04' },
+                      { name: 'Low', value: dashboard.low_exceptions || 0, color: '#65A30D' }
+                    ].filter(item => item.value > 0).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value) => [`${value} exceptions`, '']} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Trend Chart */}
+          {/* 2. Vendor Performance Scorecard */}
+          <Card className="xl:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-500" />
+                Vendor Performance Dashboard
+              </CardTitle>
+              <CardDescription>Supply chain partner analysis</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart 
+                  data={(analysisData?.vendor_performance || []).map((vendor: any) => ({
+                    vendor: vendor.vendor_name.length > 15 ? vendor.vendor_name.substring(0, 15) + '...' : vendor.vendor_name,
+                    fullName: vendor.vendor_name,
+                    value: vendor.total_po_value,
+                    pos: vendor.total_pos,
+                    compliance: vendor.compliance_score,
+                    variance: vendor.amount_variance
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="vendor" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    fontSize={11}
+                  />
+                  <YAxis formatter={(value) => `₹${(value/1000).toFixed(0)}K`} />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      name === 'value' ? `₹${value.toLocaleString()}` : value,
+                      name === 'value' ? 'Total PO Value' : 
+                      name === 'pos' ? 'Purchase Orders' :
+                      name === 'compliance' ? 'Compliance Score' : 'Amount Variance'
+                    ]}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                  />
+                  <Bar dataKey="value" fill="#3B82F6" name="PO Value" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* 3. Financial Health Metrics */}
+          <Card className="xl:col-span-1">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                Financial Health
+              </CardTitle>
+              <CardDescription>Cash flow & variance analysis</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium">Total PO Value</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    ₹{dashboard.total_po_value?.toLocaleString() || '0'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium">GRN Value</span>
+                  <span className="text-lg font-bold text-green-600">
+                    ₹{dashboard.total_grn_value?.toLocaleString() || '0'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <span className="text-sm font-medium">Total Variance</span>
+                  <span className="text-lg font-bold text-red-600">
+                    ₹{dashboard.total_variance?.toLocaleString() || '0'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                  <span className="text-sm font-medium">Invoice Value</span>
+                  <span className="text-lg font-bold text-purple-600">
+                    ₹{dashboard.total_invoice_value?.toLocaleString() || '0'}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4. Top Amount Variances - Business Critical */}
+          <Card className="xl:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-orange-500" />
+                High-Risk Amount Variances
+              </CardTitle>
+              <CardDescription>Purchase orders requiring immediate attention</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={(analysisData?.matching_results || [])
+                    .filter((result: any) => Math.abs(result.amount_variance) > 0)
+                    .sort((a: any, b: any) => Math.abs(b.amount_variance) - Math.abs(a.amount_variance))
+                    .slice(0, 8)
+                    .map((result: any) => ({
+                      po: result.po_number.length > 12 ? result.po_number.substring(0, 12) + '...' : result.po_number,
+                      fullPO: result.po_number,
+                      variance: Math.abs(result.amount_variance),
+                      vendor: result.po_vendor,
+                      status: result.status,
+                      isNegative: result.amount_variance < 0
+                    }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="po" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    fontSize={11}
+                  />
+                  <YAxis formatter={(value) => `₹${(value/1000).toFixed(0)}K`} />
+                  <Tooltip 
+                    formatter={(value) => [`₹${value.toLocaleString()}`, 'Amount Variance']}
+                    labelFormatter={(label, payload) => {
+                      const data = payload?.[0]?.payload;
+                      return data ? `${data.fullPO} (${data.vendor})` : label;
+                    }}
+                  />
+                  <Bar 
+                    dataKey="variance" 
+                    fill="#F59E0B"
+                    name="Amount Variance"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* 5. Exception Types Breakdown */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Monthly Matching Trend
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Exception Categories
               </CardTitle>
+              <CardDescription>Types of procurement issues</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={trendData}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={(() => {
+                    const exceptionTypes: {[key: string]: number} = {};
+                    (analysisData?.exceptions || []).forEach((exception: any) => {
+                      exceptionTypes[exception.exception_type] = (exceptionTypes[exception.exception_type] || 0) + 1;
+                    });
+                    return Object.entries(exceptionTypes).map(([type, count]) => ({
+                      type: type.length > 12 ? type.substring(0, 12) + '...' : type,
+                      fullType: type,
+                      count
+                    }));
+                  })()}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                  <XAxis 
+                    dataKey="type" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    fontSize={11}
+                  />
                   <YAxis />
-                  <Tooltip />
-                  <Area 
-                    type="monotone" 
-                    dataKey="matches" 
-                    stackId="1" 
-                    stroke="#10B981" 
-                    fill="#10B981" 
-                    fillOpacity={0.8}
+                  <Tooltip 
+                    formatter={(value) => [`${value}`, 'Count']}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullType || label}
+                  />
+                  <Bar dataKey="count" fill="#EF4444" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* 6. Procurement Status Overview */}
+          <Card className="xl:col-span-3">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-indigo-500" />
+                Procurement Process Status
+              </CardTitle>
+              <CardDescription>End-to-end procurement cycle visibility</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart
+                  data={(() => {
+                    const statusCounts: {[key: string]: number} = {};
+                    (analysisData?.matching_results || []).forEach((result: any) => {
+                      const status = result.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+                      statusCounts[status] = (statusCounts[status] || 0) + 1;
+                    });
+                    return Object.entries(statusCounts).map(([status, count]) => ({
+                      status,
+                      count,
+                      percentage: ((count / (analysisData?.matching_results?.length || 1)) * 100).toFixed(1)
+                    }));
+                  })()}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value, name) => [`${value} POs (${name}%)`, 'Count']}
+                    labelFormatter={(label) => `Status: ${label}`}
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="discrepancies" 
-                    stackId="1" 
-                    stroke="#F59E0B" 
-                    fill="#F59E0B" 
-                    fillOpacity={0.8}
+                    dataKey="count" 
+                    stroke="#8B5CF6" 
+                    fill="#8B5CF6" 
+                    fillOpacity={0.3}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="percentage" 
+                    stroke="#06B6D4" 
+                    fill="#06B6D4" 
+                    fillOpacity={0.2}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent>
+          </Card>
+        </div>
+
+        {/* Business Intelligence Insights Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          
+          {/* Critical Action Items */}
+          <Card className="border-red-200 bg-gradient-to-br from-red-50 to-red-100">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-5 w-5" />
+                Critical Action Items
+              </CardTitle>
+              <CardDescription className="text-red-600">
+                Immediate attention required
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(analysisData?.exceptions || [])
+                  .filter((exception: any) => exception.severity === 'critical')
+                  .slice(0, 4)
+                  .map((exception: any, index: number) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div>
+                        <p className="text-sm font-medium text-red-800">
+                          {exception.po_number} - {exception.exception_type}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          {exception.impact}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                {(analysisData?.exceptions || []).filter((exception: any) => exception.severity === 'critical').length === 0 && (
+                  <div className="text-center py-6 text-gray-500">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    <p>No critical exceptions found</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vendor Risk Assessment */}
+          <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-amber-700">
+                <Users className="h-5 w-5" />
+                Vendor Risk Assessment
+              </CardTitle>
+              <CardDescription className="text-amber-600">
+                Supply chain partner evaluation
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(analysisData?.vendor_performance || [])
+                  .sort((a: any, b: any) => b.amount_variance - a.amount_variance)
+                  .slice(0, 4)
+                  .map((vendor: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">
+                          {vendor.vendor_name}
+                        </p>
+                        <p className="text-xs text-amber-600">
+                          {vendor.total_pos} POs • ₹{vendor.total_po_value?.toLocaleString() || '0'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-amber-700">
+                          {vendor.compliance_score}%
+                        </p>
+                        <p className="text-xs text-amber-600">
+                          Compliance
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Operational KPIs Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <Card className="text-center p-4">
+            <div className="text-2xl font-bold text-blue-600">
+              {((dashboard.fully_matched || 0) / Math.max(dashboard.total_pos || 1, 1) * 100).toFixed(1)}%
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Perfect Match Rate</p>
+          </Card>
+          
+          <Card className="text-center p-4">
+            <div className="text-2xl font-bold text-green-600">
+              ₹{((dashboard.total_grn_value || 0) / 1000).toFixed(0)}K
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Goods Received</p>
+          </Card>
+          
+          <Card className="text-center p-4">
+            <div className="text-2xl font-bold text-orange-600">
+              {dashboard.pending_invoices || 0}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Pending Invoices</p>
+          </Card>
+          
+          <Card className="text-center p-4">
+            <div className="text-2xl font-bold text-purple-600">
+              {(analysisData?.vendor_performance || []).length}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">Active Vendors</p>
           </Card>
         </div>
 
@@ -484,28 +1340,35 @@ export const AnalyzeData = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { po: 'PO-2024-001', grn: 'GRN-2024-001', invoice: 'INV-2024-001', status: 'Matched', amount: '₹1,250.00' },
-                    { po: 'PO-2024-002', grn: 'GRN-2024-002', invoice: 'INV-2024-002', status: 'Discrepancy', amount: '₹890.50' },
-                    { po: 'PO-2024-003', grn: 'GRN-2024-003', invoice: 'INV-2024-003', status: 'Matched', amount: '₹2,100.75' },
-                    { po: 'PO-2024-004', grn: 'GRN-2024-004', invoice: 'INV-2024-004', status: 'Pending', amount: '₹750.25' },
-                  ].map((row, index) => (
+                  {(analysisData?.matching_results || []).slice(0, 5).map((result: any, index: number) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="p-2 font-mono text-xs">{row.po}</td>
-                      <td className="p-2 font-mono text-xs">{row.grn}</td>
-                      <td className="p-2 font-mono text-xs">{row.invoice}</td>
+                      <td className="p-2 font-medium">{result.po_number}</td>
+                      <td className="p-2">{result.has_grn ? 'GRN-Available' : 'Missing'}</td>
+                      <td className="p-2">{result.has_invoice ? 'Invoice-Available' : 'Missing'}</td>
                       <td className="p-2">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          row.status === 'Matched' ? 'bg-green-100 text-green-800' :
-                          row.status === 'Discrepancy' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          result.status === 'fully_matched' ? 'bg-green-100 text-green-700' :
+                          result.status === 'partial_match' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
                         }`}>
-                          {row.status}
+                          {result.status.replace('_', ' ').toUpperCase()}
                         </span>
                       </td>
-                      <td className="p-2 font-semibold">{row.amount}</td>
+                      <td className="p-2 font-medium">₹{result.po_amount?.toLocaleString() || '0'}</td>
                     </tr>
                   ))}
+                  {/* Show fallback message if no data */}
+                  {(!analysisData?.matching_results || analysisData.matching_results.length === 0) && 
+                    [
+                      { po: 'No data available', grn: '-', invoice: '-', status: 'No Upload', amount: '-' }
+                    ].map((row, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="p-2 text-muted-foreground" colSpan={5}>
+                          Upload files to see actual matching results
+                        </td>
+                      </tr>
+                    ))
+                  }
                 </tbody>
               </table>
             </div>
@@ -2042,12 +2905,12 @@ export const AnalyzeData = () => {
               </div>
             )}
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              {sessionId ? `${companyName} - Business Intelligence Analysis` : "Business Intelligence Analysis"}
+              Business Intelligence Analysis
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              {sessionId 
-                ? "Your uploaded data has been processed. Choose an analysis module to explore insights from your business data."
-                : "Choose from our comprehensive analysis modules to get detailed insights into your business data"
+              {!selectedAnalysis 
+                ? "Choose an analysis module and upload your relevant documents to get comprehensive insights"
+                : "Upload your documents and let our AI analyze your business data"
               }
             </p>
           </motion.div>
@@ -2098,8 +2961,14 @@ export const AnalyzeData = () => {
               ))}
             </motion.div>
           ) : (
-            /* Analysis Results */
-            loading ? (
+            /* Analysis Workflow */
+            uploadStep === 'upload' ? (
+              renderUploadInterface()
+            ) : uploadStep === 'confirm' ? (
+              renderConfirmInterface()
+            ) : analysisData ? (
+              renderAnalysisResults()
+            ) : (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -2107,14 +2976,12 @@ export const AnalyzeData = () => {
               >
                 <RefreshCw className="h-12 w-12 animate-spin text-blue-600 mb-4" />
                 <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Analyzing Data...
+                  Processing Files & Analyzing Data...
                 </h2>
                 <p className="text-muted-foreground">
-                  Please wait while we process your analysis request.
+                  Please wait while we upload, process, and analyze your files.
                 </p>
               </motion.div>
-            ) : (
-              renderAnalysisResults()
             )
           )}
         </div>

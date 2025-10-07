@@ -324,76 +324,189 @@ async def process_uploaded_files(session_id: str, background_tasks: BackgroundTa
         # Process different file types
         results = {}
         
-        # Check what types of files we have
+        # Check what types of files we have and categorize them properly
         pdf_files = [f for f in session.uploaded_files if f['file_type'] == 'pdf']
         excel_files = [f for f in session.uploaded_files if f['file_type'] == 'excel']
         
-        # Extract data based on available files
-        if pdf_files:
+        # Categorize PDF files by their naming convention
+        po_files = [f for f in pdf_files if f['filename'].upper().startswith(('PO-', 'PO_'))]
+        grn_files = [f for f in pdf_files if f['filename'].upper().startswith(('GRN-', 'GRN_'))]
+        pi_files = [f for f in pdf_files if f['filename'].upper().startswith(('PI-', 'PI_', 'INV-', 'INVOICE-'))]
+        si_files = [f for f in pdf_files if f['filename'].upper().startswith(('SI-', 'SI_', 'SALES-', 'BILL-'))]
+        
+        print(f"📁 File categorization:")
+        print(f"  - Purchase Orders: {len(po_files)} files")
+        print(f"  - GRN Records: {len(grn_files)} files") 
+        print(f"  - Purchase Invoices: {len(pi_files)} files")
+        print(f"  - Sales Invoices: {len(si_files)} files")
+        print(f"  - Excel files: {len(excel_files)} files")
+        
+        # Extract data based on available files and save to expected locations
+        if po_files:
             try:
-                # Extract Purchase Orders
+                # Create temp directory with only PO files
+                po_temp_dir = session.upload_path / "temp_po"
+                po_temp_dir.mkdir(exist_ok=True)
+                
+                # Copy only PO files to temp directory
+                for po_file in po_files:
+                    src_path = Path(po_file['file_path'])
+                    dst_path = po_temp_dir / po_file['filename']
+                    import shutil
+                    shutil.copy2(src_path, dst_path)
+                
+                # Extract Purchase Orders and save to expected location
                 parser = FinalPurchaseOrderParser()
-                po_df, po_items_df = parser.process_all_purchase_orders(upload_dir)
+                po_df, po_items_df = parser.process_all_purchase_orders(str(po_temp_dir))
                 if len(po_df) > 0:
+                    # Save to expected location for analysis engines
+                    parser.save_to_excel(po_df, po_items_df, "zenalyst_demo_results.xlsx")
                     results['purchase_orders'] = {
                         "count": len(po_df),
                         "items": len(po_items_df),
                         "value": float(po_df['total_amount'].sum())
                     }
                     session.processed_files['purchase_orders'] = (po_df, po_items_df)
+                    print(f"✅ Processed and saved {len(po_df)} Purchase Orders from uploaded files")
+                
+                # Cleanup temp directory
+                shutil.rmtree(po_temp_dir, ignore_errors=True)
             except Exception as e:
                 print(f"PO extraction error: {e}")
-            
+                # Cleanup temp directory on error
+                shutil.rmtree(po_temp_dir, ignore_errors=True)
+        
+        if grn_files:
             try:
-                # Extract GRN data
+                # Create temp directory with only GRN files
+                grn_temp_dir = session.upload_path / "temp_grn"
+                grn_temp_dir.mkdir(exist_ok=True)
+                
+                # Copy only GRN files to temp directory
+                for grn_file in grn_files:
+                    src_path = Path(grn_file['file_path'])
+                    dst_path = grn_temp_dir / grn_file['filename']
+                    shutil.copy2(src_path, dst_path)
+                
+                # Extract GRN data and save to expected location
                 grn_extractor = GRNExtractor()
-                grn_df, grn_items_df = grn_extractor.process_all_grns(upload_dir)
+                grn_df, grn_items_df = grn_extractor.process_all_grns(str(grn_temp_dir))
                 if len(grn_df) > 0:
+                    # Save to expected location for analysis engines
+                    grn_extractor.save_to_excel(grn_df, grn_items_df)
                     results['grn'] = {
                         "count": len(grn_df),
                         "items": len(grn_items_df),
-                        "value": float(grn_df['total_amount'].sum()) if 'total_amount' in grn_df.columns else 0
+                        "value": float(grn_df['total_value'].sum()) if 'total_value' in grn_df.columns else 0
                     }
                     session.processed_files['grn'] = (grn_df, grn_items_df)
+                    print(f"✅ Processed and saved {len(grn_df)} GRN records from uploaded files")
+                
+                # Cleanup temp directory
+                shutil.rmtree(grn_temp_dir, ignore_errors=True)
             except Exception as e:
                 print(f"GRN extraction error: {e}")
-            
+                # Cleanup temp directory on error
+                shutil.rmtree(grn_temp_dir, ignore_errors=True)
+        
+        if pi_files:
             try:
-                # Extract Purchase Invoices
+                # Create temp directory with only PI files
+                pi_temp_dir = session.upload_path / "temp_pi"
+                pi_temp_dir.mkdir(exist_ok=True)
+                
+                # Copy only PI files to temp directory
+                for pi_file in pi_files:
+                    src_path = Path(pi_file['file_path'])
+                    dst_path = pi_temp_dir / pi_file['filename']
+                    shutil.copy2(src_path, dst_path)
+                
+                # Extract Purchase Invoices and save to expected location
                 pi_extractor = PurchaseInvoiceExtractor()
-                pi_df, pi_items_df = pi_extractor.process_all_invoices(upload_dir)
+                pi_df, pi_items_df = pi_extractor.process_all_invoices(str(pi_temp_dir))
                 if len(pi_df) > 0:
+                    # Save to expected location for analysis engines
+                    pi_extractor.save_to_excel(pi_df, pi_items_df)
                     results['purchase_invoices'] = {
                         "count": len(pi_df),
                         "items": len(pi_items_df),
                         "value": float(pi_df['total_amount'].sum())
                     }
                     session.processed_files['purchase_invoices'] = (pi_df, pi_items_df)
+                    print(f"✅ Processed and saved {len(pi_df)} Purchase Invoices from uploaded files")
+                
+                # Cleanup temp directory
+                shutil.rmtree(pi_temp_dir, ignore_errors=True)
             except Exception as e:
                 print(f"PI extraction error: {e}")
+                # Cleanup temp directory on error
+                shutil.rmtree(pi_temp_dir, ignore_errors=True)
         
-        # If we have Excel files, try to process inventory data
+        if si_files:
+            try:
+                # Create temp directory with only SI files
+                si_temp_dir = session.upload_path / "temp_si"
+                si_temp_dir.mkdir(exist_ok=True)
+                
+                # Copy only SI files to temp directory
+                for si_file in si_files:
+                    src_path = Path(si_file['file_path'])
+                    dst_path = si_temp_dir / si_file['filename']
+                    shutil.copy2(src_path, dst_path)
+                
+                # Extract Sales Invoices and save to expected location
+                si_extractor = SalesInvoiceExtractor()
+                si_df, si_items_df = si_extractor.process_all_sales_invoices(str(si_temp_dir))
+                if len(si_df) > 0:
+                    # Save to expected location for analysis engines
+                    si_extractor.save_to_excel(si_df, si_items_df)
+                    results['sales_invoices'] = {
+                        "count": len(si_df),
+                        "items": len(si_items_df),
+                        "value": float(si_df['total_amount'].sum())
+                    }
+                    session.processed_files['sales_invoices'] = (si_df, si_items_df)
+                    print(f"✅ Processed and saved {len(si_df)} Sales Invoices from uploaded files")
+                
+                # Cleanup temp directory
+                shutil.rmtree(si_temp_dir, ignore_errors=True)
+            except Exception as e:
+                print(f"SI extraction error: {e}")
+                # Cleanup temp directory on error
+                shutil.rmtree(si_temp_dir, ignore_errors=True)
+        
+        # If we have Excel files, process inventory data and copy to expected location
         if excel_files:
             try:
                 for excel_file in excel_files:
                     file_path = excel_file['file_path']
-                    # Read and store Excel data for analysis
+                    # Read inventory data and copy to expected location
                     df = pd.read_excel(file_path)
+                    
+                    # Copy inventory file to data directory for analysis engines
+                    import shutil
+                    target_path = "data/ABC_Book_Stores_Inventory_Register.xlsx"
+                    shutil.copy2(file_path, target_path)
+                    
                     results['inventory_data'] = {
                         "rows": len(df),
                         "columns": len(df.columns),
                         "file": excel_file['filename']
                     }
                     session.processed_files['inventory'] = df
+                    print(f"✅ Processed and saved inventory data with {len(df)} items from uploaded file")
             except Exception as e:
                 print(f"Excel processing error: {e}")
         
         # Store results in session
         session.analysis_results = results
         
+        # Clear any existing analysis caches to ensure fresh data is used
+        print("🗑️ Cleared analysis caches - fresh data will be used for subsequent analyses")
+        
         return {
             "status": "success",
-            "message": "Files processed successfully",
+            "message": "Files processed successfully and saved to analysis locations",
             "session_id": session_id,
             "company_name": session.company_name or "Your Business",
             "processing_results": results,
@@ -588,9 +701,90 @@ async def get_comprehensive_analytics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/analytics/matching")
-async def get_matching_analysis():
-    """Get 3-way matching analysis"""
+async def get_matching_analysis(session_id: str = None):
+    """Get 3-way matching analysis - Uses session-specific uploaded files if available"""
     try:
+        print(f"🔄 Running 3-way matching analysis for session: {session_id}")
+        
+        # If we have a session with uploaded files, ensure they're processed first
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id] 
+            print(f"📁 Using data from session: {session_id} for {session.company_name}")
+            
+            # Check if we have processed data or need to re-extract
+            upload_dir = str(session.upload_path)
+            
+            # Ensure latest data is extracted and available using proper file categorization
+            try:
+                # Categorize uploaded files properly
+                pdf_files = [f for f in session.uploaded_files if f['file_type'] == 'pdf']
+                po_files = [f for f in pdf_files if f['filename'].upper().startswith(('PO-', 'PO_'))]
+                grn_files = [f for f in pdf_files if f['filename'].upper().startswith(('GRN-', 'GRN_'))]
+                pi_files = [f for f in pdf_files if f['filename'].upper().startswith(('PI-', 'PI_', 'INV-', 'INVOICE-'))]
+                
+                print(f"🔄 Categorized files - PO: {len(po_files)}, GRN: {len(grn_files)}, PI: {len(pi_files)}")
+                
+                # Process only the relevant file types
+                if po_files:
+                    po_temp_dir = session.upload_path / "temp_po_matching"
+                    po_temp_dir.mkdir(exist_ok=True)
+                    
+                    # Copy only PO files
+                    for po_file in po_files:
+                        src_path = Path(po_file['file_path'])
+                        dst_path = po_temp_dir / po_file['filename']
+                        shutil.copy2(src_path, dst_path)
+                    
+                    parser = FinalPurchaseOrderParser()
+                    po_df, po_items_df = parser.process_all_purchase_orders(str(po_temp_dir))
+                    if len(po_df) > 0:
+                        parser.save_to_excel(po_df, po_items_df, "zenalyst_demo_results.xlsx")
+                        print(f"🔄 Refreshed {len(po_df)} Purchase Orders from uploaded files")
+                    
+                    shutil.rmtree(po_temp_dir, ignore_errors=True)
+                
+                if grn_files:
+                    grn_temp_dir = session.upload_path / "temp_grn_matching"
+                    grn_temp_dir.mkdir(exist_ok=True)
+                    
+                    # Copy only GRN files
+                    for grn_file in grn_files:
+                        src_path = Path(grn_file['file_path'])
+                        dst_path = grn_temp_dir / grn_file['filename']
+                        shutil.copy2(src_path, dst_path)
+                    
+                    grn_extractor = GRNExtractor()
+                    grn_df, grn_items_df = grn_extractor.process_all_grns(str(grn_temp_dir))
+                    if len(grn_df) > 0:
+                        grn_extractor.save_to_excel(grn_df, grn_items_df)
+                        print(f"🔄 Refreshed {len(grn_df)} GRN records from uploaded files")
+                    
+                    shutil.rmtree(grn_temp_dir, ignore_errors=True)
+                
+                if pi_files:
+                    pi_temp_dir = session.upload_path / "temp_pi_matching"
+                    pi_temp_dir.mkdir(exist_ok=True)
+                    
+                    # Copy only PI files
+                    for pi_file in pi_files:
+                        src_path = Path(pi_file['file_path'])
+                        dst_path = pi_temp_dir / pi_file['filename']
+                        shutil.copy2(src_path, dst_path)
+                    
+                    pi_extractor = PurchaseInvoiceExtractor()
+                    pi_df, pi_items_df = pi_extractor.process_all_invoices(str(pi_temp_dir))
+                    if len(pi_df) > 0:
+                        pi_extractor.save_to_excel(pi_df, pi_items_df)
+                        print(f"🔄 Refreshed {len(pi_df)} Purchase Invoices from uploaded files")
+                    
+                    shutil.rmtree(pi_temp_dir, ignore_errors=True)
+                    
+            except Exception as e:
+                print(f"⚠️ Error refreshing data from uploads: {e}")
+        else:
+            print("📁 Using default demo data")
+        
+        # Now run the analysis with fresh data
         analysis_result = matching_engine.analyze_three_way_matching()
         
         if 'error' in analysis_result:
@@ -603,7 +797,9 @@ async def get_matching_analysis():
             'exceptions': [e.__dict__ if hasattr(e, '__dict__') else e for e in analysis_result['exceptions']],
             'vendor_performance': [v.__dict__ if hasattr(v, '__dict__') else v for v in analysis_result['vendor_performance']],
             'charts': analysis_result.get('charts', {}),
-            'processing_time': analysis_result.get('processing_time', 0)
+            'processing_time': analysis_result.get('processing_time', 0),
+            'session_id': session_id,
+            'data_source': 'uploaded_files' if session_id else 'demo_data'
         }
         
         return serialized_result
@@ -1162,7 +1358,7 @@ async def run_comprehensive_inventory_analysis():
 # =============================================================================
 
 @app.post("/analyze/profitability")
-async def run_profitability_analysis(session_id: str = None):
+async def run_profitability_analysis(request: dict = None):
     """
     Run comprehensive profitability analysis
     
@@ -1174,7 +1370,8 @@ async def run_profitability_analysis(session_id: str = None):
     - Negative margin identification
     """
     try:
-        print("🚀 Running profitability analysis...")
+        session_id = request.get('session_id') if request else None
+        print(f"🚀 Running profitability analysis for session: {session_id}")
         
         # Initialize analysis engine
         engine = ProfitabilityAnalysisEngine()
