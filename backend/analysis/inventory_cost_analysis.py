@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import os
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -324,7 +325,7 @@ class InventoryCostAnalysisEngine:
         print(f"✅ Analysis Complete!")
         print(f"   📊 {len(analysis_results)} items analyzed")
         print(f"   📂 {len(category_analysis)} categories processed")
-        print(f"   📁 Results saved to: inventory_cost_analysis.xlsx")
+        print(f"   📁 Results saved to: reports/inventory_cost_analysis_[timestamp].xlsx")
         
         return analysis_results, category_analysis
     
@@ -379,7 +380,10 @@ class InventoryCostAnalysisEngine:
         
         # Save to Excel with error handling
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'inventory_cost_analysis_{timestamp}.xlsx'
+        filename = f'reports/inventory_cost_analysis_{timestamp}.xlsx'
+        
+        # Ensure reports directory exists
+        os.makedirs('reports', exist_ok=True)
         
         try:
             with pd.ExcelWriter(filename, engine='openpyxl') as writer:

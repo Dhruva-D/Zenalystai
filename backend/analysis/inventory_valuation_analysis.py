@@ -363,8 +363,12 @@ class InventoryValuationAnalysisEngine:
         
         # Save to Excel with timestamp to avoid permission conflicts
         from datetime import datetime
+        import os
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'inventory_valuation_analysis_{timestamp}.xlsx'
+        filename = f'reports/inventory_valuation_analysis_{timestamp}.xlsx'
+        
+        # Ensure reports directory exists
+        os.makedirs('reports', exist_ok=True)
         
         try:
             with pd.ExcelWriter(filename, engine='openpyxl') as writer:

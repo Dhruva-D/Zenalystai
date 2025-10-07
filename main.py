@@ -451,7 +451,7 @@ async def extract_grn_records():
             "grn_records": len(grn_df),
             "received_items": len(items_df),
             "total_value": float(grn_df['total_value'].sum()) if len(grn_df) > 0 else 0,
-            "file_generated": "grn_extracted_data.xlsx"
+            "file_generated": "reports/grn_extracted_data.xlsx"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -472,7 +472,7 @@ async def extract_purchase_invoices():
             "invoices": len(invoice_df),
             "billed_items": len(items_df),
             "total_value": float(invoice_df['total_amount'].sum()) if len(invoice_df) > 0 else 0,
-            "file_generated": "purchase_invoices_extracted.xlsx"
+            "file_generated": "reports/purchase_invoices_extracted.xlsx"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -493,7 +493,7 @@ async def extract_sales_invoices():
             "invoices": len(invoice_df),
             "sold_items": len(items_df),
             "total_revenue": float(invoice_df['total_amount'].sum()) if len(invoice_df) > 0 else 0,
-            "file_generated": "sales_invoices_extracted.xlsx"
+            "file_generated": "reports/sales_invoices_extracted.xlsx"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -551,9 +551,9 @@ async def extract_all_documents(background_tasks: BackgroundTasks):
             "total_documents": sum([r['count'] for r in results.values()]),
             "files_generated": [
                 "zenalyst_demo_results.xlsx",
-                "grn_extracted_data.xlsx", 
-                "purchase_invoices_extracted.xlsx",
-                "sales_invoices_extracted.xlsx"
+                "reports/grn_extracted_data.xlsx", 
+                "reports/purchase_invoices_extracted.xlsx",
+                "reports/sales_invoices_extracted.xlsx"
             ]
         }
         
@@ -727,8 +727,8 @@ async def verify_po_invoice():
     """Run comprehensive PO-Invoice verification analysis"""
     try:
         # Check if required extraction files exist, if not, extract them first
-        po_file_exists = Path("purchase_orders_extracted.xlsx").exists()
-        pi_file_exists = Path("purchase_invoices_extracted.xlsx").exists()
+        po_file_exists = Path("reports/purchase_orders_extracted.xlsx").exists()
+        pi_file_exists = Path("reports/purchase_invoices_extracted.xlsx").exists()
         
         if not po_file_exists:
             print("📄 Purchase Orders not extracted yet, extracting now...")

@@ -282,8 +282,12 @@ class PurchaseInvoiceExtractor:
         
         return invoice_df, items_df
     
-    def save_to_excel(self, invoice_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "purchase_invoices_extracted.xlsx"):
+    def save_to_excel(self, invoice_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "reports/purchase_invoices_extracted.xlsx"):
         """Save the processed data to Excel file"""
+        # Ensure reports directory exists
+        import os
+        os.makedirs('reports', exist_ok=True)
+        
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             invoice_df.to_excel(writer, sheet_name='Purchase_Invoices', index=False)
             items_df.to_excel(writer, sheet_name='Billed_Items', index=False)

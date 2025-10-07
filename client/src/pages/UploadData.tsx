@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Navbar, FloatingScrollToTop } from "@/components/layout";
+import { createApiEndpoint } from "@/lib/api";
 
 export const UploadData = () => {
   const navigate = useNavigate();
@@ -105,7 +106,7 @@ export const UploadData = () => {
       }
       
       // Upload files
-      const uploadResponse = await fetch('http://localhost:8000/upload/files', {
+      const uploadResponse = await fetch(createApiEndpoint('/upload/files'), {
         method: 'POST',
         body: formData,
       });
@@ -120,7 +121,7 @@ export const UploadData = () => {
       setUploadStatus("Processing files...");
       
       // Process uploaded files
-      const processResponse = await fetch(`http://localhost:8000/process/uploaded-files/${sessionId}`, {
+      const processResponse = await fetch(createApiEndpoint(`/process/uploaded-files/${sessionId}`), {
         method: 'POST',
       });
       

@@ -270,7 +270,11 @@ async def export_data(request: ExportRequest) -> FileResponse:
         
         if request.format == "excel":
             # Create Excel file with multiple sheets
-            filename = f"three_way_matching_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            filename = f"reports/three_way_matching_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            # Ensure reports directory exists
+            import os
+            os.makedirs('reports', exist_ok=True)
             
             with pd.ExcelWriter(filename, engine='openpyxl') as writer:
                 # Dashboard summary

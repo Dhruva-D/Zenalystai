@@ -276,8 +276,12 @@ class GRNExtractor:
         
         return grn_df, items_df
     
-    def save_to_excel(self, grn_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "grn_extracted_data.xlsx"):
+    def save_to_excel(self, grn_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "reports/grn_extracted_data.xlsx"):
         """Save the processed data to Excel file"""
+        # Ensure reports directory exists
+        import os
+        os.makedirs('reports', exist_ok=True)
+        
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             grn_df.to_excel(writer, sheet_name='GRN_Records', index=False)
             items_df.to_excel(writer, sheet_name='Received_Items', index=False)

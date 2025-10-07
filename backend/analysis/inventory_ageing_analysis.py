@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import os
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -320,7 +321,10 @@ class InventoryAgeingAnalysisEngine:
         
         # Save to Excel with error handling
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'inventory_ageing_analysis_{timestamp}.xlsx'
+        filename = f'reports/inventory_ageing_analysis_{timestamp}.xlsx'
+        
+        # Ensure reports directory exists
+        os.makedirs('reports', exist_ok=True)
         
         try:
             with pd.ExcelWriter(filename, engine='openpyxl') as writer:

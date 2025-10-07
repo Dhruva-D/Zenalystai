@@ -32,14 +32,14 @@ class ThreeWayMatchingEngine:
                 self.po_items_df = pd.read_excel('zenalyst_demo_results.xlsx', sheet_name='Items')
             
             # GRN Data
-            if Path('grn_extracted_data.xlsx').exists():
-                self.grn_df = pd.read_excel('grn_extracted_data.xlsx', sheet_name='GRN_Records')
-                self.grn_items_df = pd.read_excel('grn_extracted_data.xlsx', sheet_name='Received_Items')
+            if Path('reports/grn_extracted_data.xlsx').exists():
+                self.grn_df = pd.read_excel('reports/grn_extracted_data.xlsx', sheet_name='GRN_Records')
+                self.grn_items_df = pd.read_excel('reports/grn_extracted_data.xlsx', sheet_name='Received_Items')
             
             # Purchase Invoices
-            if Path('purchase_invoices_extracted.xlsx').exists():
-                self.pi_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Purchase_Invoices')
-                self.pi_items_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Billed_Items')
+            if Path('reports/purchase_invoices_extracted.xlsx').exists():
+                self.pi_df = pd.read_excel('reports/purchase_invoices_extracted.xlsx', sheet_name='Purchase_Invoices')
+                self.pi_items_df = pd.read_excel('reports/purchase_invoices_extracted.xlsx', sheet_name='Billed_Items')
             
             # Clean and standardize data
             self._clean_data()

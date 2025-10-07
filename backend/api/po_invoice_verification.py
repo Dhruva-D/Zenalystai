@@ -317,11 +317,11 @@ class POInvoiceVerificationEngine:
         
         # Load all data
         try:
-            po_df = pd.read_excel('purchase_orders_extracted.xlsx', sheet_name='Purchase_Orders')
-            po_items_df = pd.read_excel('purchase_orders_extracted.xlsx', sheet_name='Items')
+            po_df = pd.read_excel('reports/purchase_orders_extracted.xlsx', sheet_name='Purchase_Orders')
+            po_items_df = pd.read_excel('reports/purchase_orders_extracted.xlsx', sheet_name='Items')
             
-            pi_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Purchase_Invoices')
-            pi_items_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Billed_Items')
+            pi_df = pd.read_excel('reports/purchase_invoices_extracted.xlsx', sheet_name='Purchase_Invoices')
+            pi_items_df = pd.read_excel('reports/purchase_invoices_extracted.xlsx', sheet_name='Billed_Items')
             
             # Check if invoice items were extracted properly
             if len(pi_items_df) == 0 or 'invoice_number' not in pi_items_df.columns:
@@ -485,7 +485,11 @@ class POInvoiceVerificationEngine:
         
         # Save results to Excel with error handling
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'po_invoice_verification_results_{timestamp}.xlsx'
+        filename = f'reports/po_invoice_verification_results_{timestamp}.xlsx'
+        
+        # Ensure reports directory exists
+        import os
+        os.makedirs('reports', exist_ok=True)
         
         try:
             with pd.ExcelWriter(filename, engine='openpyxl') as writer:

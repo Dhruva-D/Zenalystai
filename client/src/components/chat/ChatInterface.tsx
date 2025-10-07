@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { getApiUrl } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -63,7 +64,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = getApiUrl();
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {

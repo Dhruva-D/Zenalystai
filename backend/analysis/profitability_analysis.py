@@ -514,8 +514,12 @@ class ProfitabilityAnalysisEngine:
         
         # Add timestamp to filename to avoid permission conflicts
         from datetime import datetime
+        import os
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        timestamped_filename = f'profitability_analysis_{timestamp}.xlsx'
+        timestamped_filename = f'reports/profitability_analysis_{timestamp}.xlsx'
+        
+        # Ensure reports directory exists
+        os.makedirs('reports', exist_ok=True)
         
         try:
             with pd.ExcelWriter(timestamped_filename, engine='openpyxl') as writer:

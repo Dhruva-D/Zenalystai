@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { createApiEndpoint } from '@/lib/api';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -104,7 +105,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
     setError(null);
     
     try {
-      const response = await fetch(`http://localhost:8000/analyze/${analysisType}/ai-insights`, {
+      const response = await fetch(createApiEndpoint(`/analyze/${analysisType}/ai-insights`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +139,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
   const startChatSession = async () => {
     setChatLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/chat/start-session?analysis_type=${analysisType}`, {
+      const response = await fetch(createApiEndpoint(`/chat/start-session?analysis_type=${analysisType}`), {
         method: 'POST',
       });
 
@@ -178,7 +179,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
     setChatLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/chat/${chatSessionId}`, {
+      const response = await fetch(createApiEndpoint(`/chat/${chatSessionId}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

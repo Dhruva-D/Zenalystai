@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createApiEndpoint } from '@/lib/api';
 
 export interface AnalysisStep {
   id: string;
@@ -120,7 +121,7 @@ export const useApiAnalysis = () => {
         fetchOptions.body = JSON.stringify({});
       }
 
-      const response = await fetch(`http://localhost:8000${step.endpoint}`, fetchOptions);
+      const response = await fetch(createApiEndpoint(step.endpoint), fetchOptions);
 
       clearTimeout(timeoutId);
 
