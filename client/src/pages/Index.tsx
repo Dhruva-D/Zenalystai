@@ -1,13 +1,13 @@
-import { Navbar } from "@/components/Navbar";
-import { Hero } from "@/components/Hero";
-import { ProblemStatement } from "@/components/ProblemStatement";
-import { SolutionOverview } from "@/components/SolutionOverview";
-import { HowItWorks } from "@/components/HowItWorks";
-import { FeaturesGrid } from "@/components/FeaturesGrid";
-import { Benefits } from "@/components/Benefits";
-import { CTASection } from "@/components/CTASection";
-import { Footer } from "@/components/Footer";
-import { FloatingScrollToTop } from "@/components/FloatingScrollToTop";
+import { Navbar, Footer, FloatingScrollToTop } from "@/components/layout";
+import { 
+  Hero, 
+  ProblemStatement, 
+  SolutionOverview, 
+  HowItWorks, 
+  FeaturesGrid, 
+  Benefits, 
+  CTASection 
+} from "@/components/landing";
 
 const Index = () => {
   return (

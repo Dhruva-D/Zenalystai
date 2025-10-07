@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Navbar } from "@/components/Navbar";
-import { FloatingScrollToTop } from "@/components/FloatingScrollToTop";
+import { Navbar } from "@/components/layout";
+import { FloatingScrollToTop } from "@/components/layout";
 
 export const About = () => {
   const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.1 });

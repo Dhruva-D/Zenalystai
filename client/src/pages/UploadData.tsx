@@ -4,8 +4,7 @@ import { Upload, File, Folder, Plus, X, CheckCircle, AlertCircle } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Navbar } from "@/components/Navbar";
-import { FloatingScrollToTop } from "@/components/FloatingScrollToTop";
+import { Navbar, FloatingScrollToTop } from "@/components/layout";
 
 export const UploadData = () => {
   const [dragActive, setDragActive] = useState(false);
