@@ -71,7 +71,7 @@ Zenalystai/
 ### Backend Setup
 1. Clone the repository
 2. Create virtual environment: `python -m venv venv`
-3. Activate virtual environment: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Linux/Mac)
+3. Activate virtual environment: `source venv/Scripts/activate`
 4. Install dependencies: `pip install -r requirements.txt`
 5. Create `.env` file with your Gemini API key:
    ```
@@ -161,3 +161,8 @@ For questions or support, please contact the development team.
 ---
 
 **Built with ❤️ for modern businesses seeking data-driven insights**
+
+source venv/Scripts/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+

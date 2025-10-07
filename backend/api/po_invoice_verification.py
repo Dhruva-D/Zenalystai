@@ -323,6 +323,14 @@ class POInvoiceVerificationEngine:
             pi_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Purchase_Invoices')
             pi_items_df = pd.read_excel('purchase_invoices_extracted.xlsx', sheet_name='Billed_Items')
             
+            # Check if invoice items were extracted properly
+            if len(pi_items_df) == 0 or 'invoice_number' not in pi_items_df.columns:
+                print("⚠️ Warning: No invoice items found in extracted data.")
+                print("This usually indicates an issue with the invoice extraction process.")
+                print("The verification will proceed using invoice header data only.")
+                # Create an empty DataFrame with expected columns for consistency
+                pi_items_df = pd.DataFrame(columns=['invoice_number', 'title', 'qty_billed', 'rate', 'amount'])
+            
         except FileNotFoundError as e:
             print(f"❌ Error: Required Excel files not found - {e}")
             print("Please run PO and Invoice extraction first!")

@@ -1797,9 +1797,8 @@ export const AnalyzeData = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
                 
-                <span className="h-5 w-5 font-bold">₹</span>
-
-                Total Revenue
+                <IndianRupee className="h-5 w-5" />
+                 Total Revenue
               </CardTitle>
             </CardHeader>
             <CardContent>

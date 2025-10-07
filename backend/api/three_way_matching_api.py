@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional
 import io
 import base64
 
-from matching_engine import ThreeWayMatchingEngine
-from data_models import (
+from backend.api.matching_engine import ThreeWayMatchingEngine
+from backend.core.data_models import (
     MatchingAnalysisResponse, RefreshRequest, ExportRequest,
     DashboardSummary, MatchingResult, ExceptionItem, VendorPerformance
 )

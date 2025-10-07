@@ -507,6 +507,24 @@ async def get_vendor_performance():
 async def verify_po_invoice():
     """Run comprehensive PO-Invoice verification analysis"""
     try:
+        # Check if required extraction files exist, if not, extract them first
+        po_file_exists = Path("purchase_orders_extracted.xlsx").exists()
+        pi_file_exists = Path("purchase_invoices_extracted.xlsx").exists()
+        
+        if not po_file_exists:
+            print("📄 Purchase Orders not extracted yet, extracting now...")
+            parser = FinalPurchaseOrderParser()
+            po_df, items_df = parser.process_all_purchase_orders("data/Purchase Order")
+            parser.save_to_excel(po_df, items_df)
+            print("✅ Purchase Orders extraction completed")
+        
+        if not pi_file_exists:
+            print("📄 Purchase Invoices not extracted yet, extracting now...")
+            extractor = PurchaseInvoiceExtractor()
+            invoice_df, items_df = extractor.process_all_invoices("data/Purchase Invoice")
+            extractor.save_to_excel(invoice_df, items_df)
+            print("✅ Purchase Invoices extraction completed")
+        
         verification_engine = POInvoiceVerificationEngine()
         results_df, vendor_performance = verification_engine.process_all_verifications()
         

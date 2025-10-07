@@ -266,7 +266,7 @@ class FinalPurchaseOrderParser:
         
         return po_df, items_df
     
-    def save_to_excel(self, po_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "purchase_orders_final.xlsx"):
+    def save_to_excel(self, po_df: pd.DataFrame, items_df: pd.DataFrame, filename: str = "purchase_orders_extracted.xlsx"):
         """Save the processed data to Excel file"""
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             po_df.to_excel(writer, sheet_name='Purchase_Orders', index=False)
