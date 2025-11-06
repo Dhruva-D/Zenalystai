@@ -178,6 +178,36 @@ class POInvoiceVerificationEngine:
         """
         results = []
         
+        # Handle case where no invoice items were extracted
+        if len(invoice_items_df) == 0 or 'title' not in invoice_items_df.columns:
+            # Process all PO items as "SHORT" since they weren't invoiced
+            for _, po_item in po_items_df.iterrows():
+                po_number = po_df.iloc[0]['po_number'] if len(po_df) > 0 else 'UNKNOWN'
+                invoice_number = invoice_df.iloc[0]['invoice_number'] if len(invoice_df) > 0 else 'NO_ITEMS'
+                
+                result = VerificationResult(
+                    po_number=po_number,
+                    invoice_number=invoice_number,
+                    verification_status='SHORT',
+                    item_title=po_item.get('title', 'Unknown Item'),
+                    po_quantity=float(po_item.get('quantity', 0)),
+                    invoice_quantity=0.0,
+                    quantity_variance=-float(po_item.get('quantity', 0)),
+                    quantity_variance_pct=-100.0,
+                    po_rate=float(po_item.get('rate', 0)),
+                    invoice_rate=0.0,
+                    price_variance=0.0,
+                    price_variance_pct=0.0,
+                    po_amount=float(po_item.get('quantity', 0)) * float(po_item.get('rate', 0)),
+                    invoice_amount=0.0,
+                    amount_variance=-float(po_item.get('quantity', 0)) * float(po_item.get('rate', 0)),
+                    severity='HIGH',
+                    business_impact="Invoice received but no itemized details extracted",
+                    recommendation="Review invoice extraction process or manual verification needed"
+                )
+                results.append(result)
+            return results
+        
         # Match items between PO and Invoice using fuzzy matching
         po_items_list = po_items_df['title'].dropna().tolist()
         invoice_items_list = invoice_items_df['title'].dropna().tolist()
@@ -341,86 +371,96 @@ class POInvoiceVerificationEngine:
         
         # Process each PO-Invoice pair
         for _, po_row in po_df.iterrows():
-            po_number = po_row['po_number']
-            related_po = po_row.get('related_po', po_number)
-            
-            # Find corresponding invoice(s)
-            matching_invoices = pi_df[pi_df['related_po'].str.contains(po_number, na=False)]
-            
-            if len(matching_invoices) == 0:
-                # No matching invoice found
-                po_items = po_items_df[po_items_df['po_number'] == po_number]
+            try:
+                po_number = po_row['po_number']
+                related_po = po_row.get('related_po', po_number)
                 
-                for _, item_row in po_items.iterrows():
-                    result = VerificationResult(
-                        po_number=po_number,
-                        invoice_number='NOT_INVOICED',
-                        verification_status='SHORT',
-                        item_title=item_row['title'],
-                        po_quantity=float(item_row['quantity']),
-                        invoice_quantity=0.0,
-                        quantity_variance=-float(item_row['quantity']),
-                        quantity_variance_pct=-100.0,
-                        po_rate=float(item_row['rate']),
-                        invoice_rate=0.0,
-                        price_variance=0.0,
-                        price_variance_pct=0.0,
-                        po_amount=float(item_row['quantity']) * float(item_row['rate']),
-                        invoice_amount=0.0,
-                        amount_variance=-float(item_row['quantity']) * float(item_row['rate']),
-                        severity='CRITICAL',
-                        business_impact="PO not invoiced - Payment pending or delivery issue",
-                        recommendation="Follow up with vendor for invoice or delivery status"
-                    )
-                    all_results.append(result)
-            
-            else:
-                # Process each matching invoice
-                for _, invoice_row in matching_invoices.iterrows():
-                    invoice_number = invoice_row['invoice_number']
-                    
-                    # Get items for this PO and Invoice
+                # Find corresponding invoice(s)
+                try:
+                    matching_invoices = pi_df[pi_df['related_po'].str.contains(po_number, na=False)]
+                except Exception as e:
+                    print(f"⚠️ Warning: Error matching invoices for PO {po_number}: {e}")
+                    matching_invoices = pd.DataFrame()
+                
+                if len(matching_invoices) == 0:
+                    # No matching invoice found
                     po_items = po_items_df[po_items_df['po_number'] == po_number]
-                    invoice_items = pi_items_df[pi_items_df['invoice_number'] == invoice_number]
                     
-                    # Verify this PO-Invoice pair
-                    pair_results = self.verify_po_invoice_pair(
-                        po_df[po_df['po_number'] == po_number],
-                        pi_df[pi_df['invoice_number'] == invoice_number],
-                        po_items,
-                        invoice_items
-                    )
-                    
-                    all_results.extend(pair_results)
-                    
-                    # Update vendor statistics
-                    vendor_name = po_row.get('supplier_name', 'Unknown')
-                    if vendor_name not in vendor_stats:
-                        vendor_stats[vendor_name] = {
-                            'total_pos': 0,
-                            'total_invoices': 0,
-                            'matched_items': 0,
-                            'excess_items': 0,
-                            'short_items': 0,
-                            'price_variance_items': 0,
-                            'total_po_value': 0.0,
-                            'total_invoice_value': 0.0
-                        }
-                    
-                    vendor_stats[vendor_name]['total_pos'] += 1
-                    vendor_stats[vendor_name]['total_invoices'] += 1
-                    vendor_stats[vendor_name]['total_po_value'] += float(po_row.get('total_amount', 0))
-                    vendor_stats[vendor_name]['total_invoice_value'] += float(invoice_row.get('total_amount', 0))
-                    
-                    for result in pair_results:
-                        if result.verification_status == 'MATCHED':
-                            vendor_stats[vendor_name]['matched_items'] += 1
-                        elif result.verification_status == 'EXCESS':
-                            vendor_stats[vendor_name]['excess_items'] += 1
-                        elif result.verification_status == 'SHORT':
-                            vendor_stats[vendor_name]['short_items'] += 1
-                        elif result.verification_status == 'PRICE_VARIANCE':
-                            vendor_stats[vendor_name]['price_variance_items'] += 1
+                    for _, item_row in po_items.iterrows():
+                        result = VerificationResult(
+                            po_number=po_number,
+                            invoice_number='NOT_INVOICED',
+                            verification_status='SHORT',
+                            item_title=item_row['title'],
+                            po_quantity=float(item_row['quantity']),
+                            invoice_quantity=0.0,
+                            quantity_variance=-float(item_row['quantity']),
+                            quantity_variance_pct=-100.0,
+                            po_rate=float(item_row['rate']),
+                            invoice_rate=0.0,
+                            price_variance=0.0,
+                            price_variance_pct=0.0,
+                            po_amount=float(item_row['quantity']) * float(item_row['rate']),
+                            invoice_amount=0.0,
+                            amount_variance=-float(item_row['quantity']) * float(item_row['rate']),
+                            severity='CRITICAL',
+                            business_impact="PO not invoiced - Payment pending or delivery issue",
+                            recommendation="Follow up with vendor for invoice or delivery status"
+                        )
+                        all_results.append(result)
+                
+                else:
+                    # Process each matching invoice
+                    for _, invoice_row in matching_invoices.iterrows():
+                        invoice_number = invoice_row['invoice_number']
+                        
+                        # Get items for this PO and Invoice
+                        po_items = po_items_df[po_items_df['po_number'] == po_number]
+                        invoice_items = pi_items_df[pi_items_df['invoice_number'] == invoice_number]
+                        
+                        # Verify this PO-Invoice pair
+                        pair_results = self.verify_po_invoice_pair(
+                            po_df[po_df['po_number'] == po_number],
+                            pi_df[pi_df['invoice_number'] == invoice_number],
+                            po_items,
+                            invoice_items
+                        )
+                        
+                        all_results.extend(pair_results)
+                        
+                        # Update vendor statistics
+                        vendor_name = po_row.get('supplier_name', 'Unknown')
+                        if vendor_name not in vendor_stats:
+                            vendor_stats[vendor_name] = {
+                                'total_pos': 0,
+                                'total_invoices': 0,
+                                'matched_items': 0,
+                                'excess_items': 0,
+                                'short_items': 0,
+                                'price_variance_items': 0,
+                                'total_po_value': 0.0,
+                                'total_invoice_value': 0.0
+                            }
+                        
+                        vendor_stats[vendor_name]['total_pos'] += 1
+                        vendor_stats[vendor_name]['total_invoices'] += 1
+                        vendor_stats[vendor_name]['total_po_value'] += float(po_row.get('total_amount', 0))
+                        vendor_stats[vendor_name]['total_invoice_value'] += float(invoice_row.get('total_amount', 0))
+                        
+                        for result in pair_results:
+                            if result.verification_status == 'MATCHED':
+                                vendor_stats[vendor_name]['matched_items'] += 1
+                            elif result.verification_status == 'EXCESS':
+                                vendor_stats[vendor_name]['excess_items'] += 1
+                            elif result.verification_status == 'SHORT':
+                                vendor_stats[vendor_name]['short_items'] += 1
+                            elif result.verification_status == 'PRICE_VARIANCE':
+                                vendor_stats[vendor_name]['price_variance_items'] += 1
+                                
+            except Exception as e:
+                print(f"⚠️ Error processing PO {po_number}: {e}")
+                # Continue processing other POs even if one fails
+                continue
         
         # Convert results to DataFrame
         results_df = pd.DataFrame([
