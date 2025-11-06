@@ -118,8 +118,8 @@ class ProfitabilityAnalysisEngine:
     Analyzes vendor performance, category profitability, and SKU margins
     """
     
-    def __init__(self):
-        self.data_file = "data/ABC_Book_Stores_Inventory_Register.xlsx"
+    def __init__(self, data_file: str = None):
+        self.data_file = data_file or "data/ABC_Book_Stores_Inventory_Register.xlsx"
         self.output_file = "profitability_analysis.xlsx"
         self.df = None
         
@@ -127,46 +127,106 @@ class ProfitabilityAnalysisEngine:
         """Load and validate inventory data"""
         try:
             logger.info("📊 Loading Inventory Data for Profitability Analysis...")
+            logger.info(f"📂 Loading from: {self.data_file}")
             
             if not Path(self.data_file).exists():
                 logger.error(f"❌ Data file not found: {self.data_file}")
                 return False
                 
-            # Load the inventory register
-            self.df = pd.read_excel(self.data_file, sheet_name='Inventory Register')
+            # Load the inventory register - try different sheet names
+            try:
+                self.df = pd.read_excel(self.data_file, sheet_name='Inventory Register')
+            except:
+                # If 'Inventory Register' sheet doesn't exist, try the first sheet
+                logger.info("ℹ️ 'Inventory Register' sheet not found, trying first sheet...")
+                self.df = pd.read_excel(self.data_file, sheet_name=0)
+            
             logger.info(f"✅ Loaded {len(self.df)} inventory records")
             
-            # Map actual column names to standard names
+            # Display available columns for debugging
+            logger.info(f"📋 Available columns: {list(self.df.columns)}")
+            
+            # Flexible column mapping - map various possible column names to standard names
             column_mapping = {
+                # Product Name variations
                 'Book Title': 'Product Name',
+                'Product': 'Product Name',
+                'Item': 'Product Name',
+                'Item Name': 'Product Name',
+                'SKU': 'Product Name',
+                
+                # Stock/Quantity variations
                 'Opening No. of Units': 'Opening Stock',
+                'Quantity': 'Opening Stock',
+                'Stock': 'Opening Stock',
+                'Qty': 'Opening Stock',
+                'Opening Stock': 'Opening Stock',
+                'Current Stock': 'Opening Stock',
+                
+                # Purchase Rate variations
                 'Purchase Rate per unit': 'Purchase Rate',
-                'Rate per Unit': 'Selling Price'  # Using Rate per Unit as selling price
+                'Purchase Price': 'Purchase Rate',
+                'Cost Price': 'Purchase Rate',
+                'Cost': 'Purchase Rate',
+                'Buy Price': 'Purchase Rate',
+                
+                # Selling Price variations
+                'Rate per Unit': 'Selling Price',
+                'Selling Price': 'Selling Price',
+                'Sale Price': 'Selling Price',
+                'Price': 'Selling Price',
+                'MRP': 'Selling Price',
+                
+                # Category variations
+                'Category': 'Category',
+                'Type': 'Category',
+                'Class': 'Category',
+                
+                # Vendor variations
+                'Publisher': 'Vendor',
+                'Supplier': 'Vendor',
+                'Vendor': 'Vendor',
             }
             
-            # Rename columns
-            self.df = self.df.rename(columns=column_mapping)
+            # Rename columns (only those that exist)
+            existing_mappings = {k: v for k, v in column_mapping.items() if k in self.df.columns}
+            self.df = self.df.rename(columns=existing_mappings)
             
-            # Validate required columns
-            required_cols = ['Product Name', 'Category', 'Opening Stock', 'Purchase Rate', 'Selling Price']
+            logger.info(f"📋 Columns after mapping: {list(self.df.columns)}")
+            
+            # Validate required columns - be flexible
+            required_cols = ['Product Name', 'Purchase Rate', 'Selling Price']
             missing_cols = [col for col in required_cols if col not in self.df.columns]
             
             if missing_cols:
                 logger.error(f"❌ Missing required columns: {missing_cols}")
+                logger.error(f"Available columns: {list(self.df.columns)}")
                 return False
+            
+            # Category is optional - add if missing
+            if 'Category' not in self.df.columns:
+                logger.info("ℹ️ Category column not found, using 'General' for all items")
+                self.df['Category'] = 'General'
+            
+            # Opening Stock is optional - default to 1 if missing
+            if 'Opening Stock' not in self.df.columns:
+                logger.info("ℹ️ Opening Stock column not found, using quantity 1 for all items")
+                self.df['Opening Stock'] = 1
                 
             # Clean and prepare data
             self.df = self.df.dropna(subset=['Product Name', 'Purchase Rate', 'Selling Price'])
-            self.df['Opening Stock'] = pd.to_numeric(self.df['Opening Stock'], errors='coerce').fillna(0)
+            self.df['Opening Stock'] = pd.to_numeric(self.df['Opening Stock'], errors='coerce').fillna(1)
             self.df['Purchase Rate'] = pd.to_numeric(self.df['Purchase Rate'], errors='coerce').fillna(0)
             self.df['Selling Price'] = pd.to_numeric(self.df['Selling Price'], errors='coerce').fillna(0)
             
-            # Use Publisher as Vendor, fallback to extracted vendor from product name
-            if 'Publisher' in self.df.columns:
-                self.df['Vendor'] = self.df['Publisher'].fillna('Unknown Publisher')
-            else:
+            # Use Vendor column if exists, otherwise extract from product name
+            if 'Vendor' not in self.df.columns:
+                logger.info("ℹ️ Vendor column not found, extracting from product names")
                 self.df['Vendor'] = self.df['Product Name'].apply(self._extract_vendor)
+            else:
+                self.df['Vendor'] = self.df['Vendor'].fillna('Unknown Vendor')
             
+            logger.info(f"✅ Data loaded and validated: {len(self.df)} records ready for analysis")
             return True
             
         except Exception as e:

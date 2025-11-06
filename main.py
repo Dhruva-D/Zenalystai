@@ -1121,10 +1121,32 @@ async def get_vendor_performance():
 # ========================= INVENTORY ANALYSIS ENDPOINTS =========================
 
 @app.post("/analyze/inventory-cost")
-async def analyze_inventory_cost():
+async def analyze_inventory_cost(request: dict = None):
     """Run comprehensive inventory cost analysis (Task 3)"""
     try:
-        cost_engine = InventoryCostAnalysisEngine()
+        session_id = request.get('session_id') if request else None
+        print(f"🚀 Running inventory cost analysis for session: {session_id}")
+        
+        # Get uploaded file from session
+        inventory_file = None
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id]
+            # Look for uploaded Excel/CSV file
+            for file_info in session.uploaded_files:
+                file_path = file_info.get('file_path', '')
+                if file_path.endswith(('.xlsx', '.xls', '.csv')):
+                    inventory_file = file_path
+                    print(f"📁 Found inventory file: {inventory_file}")
+                    break
+        
+        # Initialize engine with uploaded file or default
+        if inventory_file:
+            cost_engine = InventoryCostAnalysisEngine(data_file=inventory_file)
+            print(f"✅ Using uploaded file: {inventory_file}")
+        else:
+            cost_engine = InventoryCostAnalysisEngine()
+            print(f"⚠️ No uploaded file found, using default file")
+        
         results, category_analysis = cost_engine.process_inventory_analysis()
         
         if not results:
@@ -1158,13 +1180,36 @@ async def analyze_inventory_cost():
         }
         
     except Exception as e:
+        print(f"❌ Error in inventory cost analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/inventory-ageing")
-async def analyze_inventory_ageing():
+async def analyze_inventory_ageing(request: dict = None):
     """Run comprehensive inventory ageing analysis (Task 4)"""
     try:
-        ageing_engine = InventoryAgeingAnalysisEngine()
+        session_id = request.get('session_id') if request else None
+        print(f"🚀 Running inventory ageing analysis for session: {session_id}")
+        
+        # Get uploaded file from session
+        inventory_file = None
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id]
+            # Look for uploaded Excel/CSV file
+            for file_info in session.uploaded_files:
+                file_path = file_info.get('file_path', '')
+                if file_path.endswith(('.xlsx', '.xls', '.csv')):
+                    inventory_file = file_path
+                    print(f"📁 Found inventory file: {inventory_file}")
+                    break
+        
+        # Initialize engine with uploaded file or default
+        if inventory_file:
+            ageing_engine = InventoryAgeingAnalysisEngine(data_file=inventory_file)
+            print(f"✅ Using uploaded file: {inventory_file}")
+        else:
+            ageing_engine = InventoryAgeingAnalysisEngine()
+            print(f"⚠️ No uploaded file found, using default file")
+        
         results, ageing_buckets = ageing_engine.process_ageing_analysis()
         
         if not results:
@@ -1199,13 +1244,38 @@ async def analyze_inventory_ageing():
         }
         
     except Exception as e:
+        print(f"❌ Error in inventory ageing analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/inventory-valuation")
-async def analyze_inventory_valuation():
+async def analyze_inventory_valuation(request: dict = None):
     """Run comprehensive FIFO inventory valuation analysis (Task 5)"""
     try:
-        valuation_engine = InventoryValuationAnalysisEngine()
+        session_id = request.get('session_id') if request else None
+        print(f"🚀 Running inventory valuation analysis for session: {session_id}")
+        
+        # Get uploaded file from session
+        inventory_file = None
+        if session_id and session_id in user_sessions:
+            session = user_sessions[session_id]
+            # Look for uploaded Excel/CSV file
+            for file_info in session.uploaded_files:
+                file_path = file_info.get('file_path', '')
+                if file_path.endswith(('.xlsx', '.xls', '.csv')):
+                    inventory_file = file_path
+                    print(f"📁 Found inventory file: {inventory_file}")
+                    break
+        
+        # Initialize engine with uploaded file or default
+        if inventory_file:
+            valuation_engine = InventoryValuationAnalysisEngine(data_file=inventory_file)
+            print(f"✅ Using uploaded file: {inventory_file}")
+        else:
+            valuation_engine = InventoryValuationAnalysisEngine()
+            print(f"⚠️ No uploaded file found, using default file")
+        
         results, category_analysis = valuation_engine.process_valuation_analysis()
         
         if not results:
@@ -1246,6 +1316,7 @@ async def analyze_inventory_valuation():
         }
         
     except Exception as e:
+        print(f"❌ Error in inventory valuation analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/analyze/inventory/dashboard")
@@ -1373,15 +1444,32 @@ async def run_profitability_analysis(request: dict = None):
         session_id = request.get('session_id') if request else None
         print(f"🚀 Running profitability analysis for session: {session_id}")
         
-        # Initialize analysis engine
-        engine = ProfitabilityAnalysisEngine()
-        
-        # Determine company name and customize analysis
+        # Determine company name and get uploaded file
         company_name = "ABC Book Store"  # Default
+        inventory_file = None
+        
         if session_id and session_id in user_sessions:
             session = user_sessions[session_id]
             company_name = session.company_name or "Your Business"
             print(f"📊 Running analysis for: {company_name}")
+            
+            # Look for uploaded inventory file in the session
+            # Check for Excel/CSV files in uploaded files
+            for file_info in session.uploaded_files:
+                file_path = file_info.get('file_path', '')
+                if file_path.endswith(('.xlsx', '.xls', '.csv')):
+                    inventory_file = file_path
+                    print(f"📁 Found inventory file in uploads: {inventory_file}")
+                    break
+        
+        # Initialize analysis engine with the uploaded file (or default)
+        if inventory_file:
+            engine = ProfitabilityAnalysisEngine(data_file=inventory_file)
+            print(f"✅ Using uploaded file: {inventory_file}")
+        else:
+            # Fallback to default file
+            engine = ProfitabilityAnalysisEngine()
+            print(f"⚠️ No uploaded file found, using default file")
         
         # Run analysis
         result = engine.run_profitability_analysis()
@@ -1397,15 +1485,16 @@ async def run_profitability_analysis(request: dict = None):
                     shutil.move(output_file, new_path)
                     output_file = new_path
         
-        # Prepare response summary
+        # Prepare response summary with more detailed data
         summary = {
             "total_skus": result.total_skus_analyzed,
             "total_vendors": result.total_vendors,
             "total_categories": result.total_categories,
-            "portfolio_value": result.portfolio_stock_value,
+            "total_portfolio_value": result.portfolio_stock_value,
             "portfolio_margin": result.portfolio_gross_margin,
-            "portfolio_margin_percentage": result.portfolio_margin_percentage,
-            "negative_margin_count": len(result.negative_margin_skus)
+            "profitability_rate_pct": result.portfolio_margin_percentage,
+            "loss_making_items": len(result.negative_margin_skus),
+            "best_margin_rate": result.best_vendors[0].average_margin_percentage if result.best_vendors else 0
         }
         
         # Top performers

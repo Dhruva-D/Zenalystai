@@ -65,16 +65,29 @@ class InventoryValuationAnalysisEngine:
     6. Liquidation feasibility assessment
     """
     
-    def __init__(self):
+    def __init__(self, data_file: str = None):
         self.valuation_results = []
         self.category_analysis = {}
+        self.data_file = data_file or "data/ABC_Book_Stores_Inventory_Register.xlsx"
         
-    def load_inventory_data(self, file_path: str = "data/ABC_Book_Stores_Inventory_Register.xlsx") -> pd.DataFrame:
+    def load_inventory_data(self, file_path: str = None) -> pd.DataFrame:
         """Load inventory register data"""
         print("📊 Loading Inventory Data for Valuation Analysis...")
         
+        # Use provided file_path, or instance data_file, or default
+        if file_path is None:
+            file_path = self.data_file
+        
+        print(f"📂 Loading from: {file_path}")
+        
         try:
-            df = pd.read_excel(file_path, sheet_name='Inventory Register')
+            # Try different sheet names
+            try:
+                df = pd.read_excel(file_path, sheet_name='Inventory Register')
+            except:
+                print("ℹ️ 'Inventory Register' sheet not found, trying first sheet...")
+                df = pd.read_excel(file_path, sheet_name=0)
+            
             print(f"✅ Loaded {len(df)} inventory records")
             return df
         except Exception as e:

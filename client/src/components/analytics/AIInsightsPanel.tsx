@@ -179,13 +179,13 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
     setChatLoading(true);
 
     try {
-      const response = await fetch(createApiEndpoint(`/chat/${chatSessionId}`), {
+      const response = await fetch(createApiEndpoint(`/chat/${chatSessionId}/message`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: chatInput,
+          content: chatInput,
           context: insightsData
         }),
       });
@@ -198,6 +198,8 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
           timestamp: data.timestamp
         };
         setChatMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error(`Failed to send message: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -206,6 +208,11 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
         content: "I'm sorry, I'm experiencing technical difficulties. Please try again.",
         timestamp: new Date().toISOString()
       }]);
+      toast({
+        title: "Chat Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setChatLoading(false);
     }

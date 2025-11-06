@@ -83,18 +83,29 @@ class InventoryCostAnalysisEngine:
     7. Strategic recommendations
     """
     
-    def __init__(self):
+    def __init__(self, data_file: str = None):
         self.inventory_data = []
         self.analysis_results = []
         self.category_analysis = {}
+        self.data_file = data_file or "data/ABC_Book_Stores_Inventory_Register.xlsx"
         
-    def load_inventory_register(self, file_path: str = "data/ABC_Book_Stores_Inventory_Register.xlsx") -> pd.DataFrame:
+    def load_inventory_register(self, file_path: str = None) -> pd.DataFrame:
         """Load and process inventory register data"""
         print("📊 Loading Inventory Register...")
         
+        # Use provided file_path, or instance data_file, or default
+        if file_path is None:
+            file_path = self.data_file
+        
+        print(f"📂 Loading from: {file_path}")
+        
         try:
-            # Load the inventory register
-            df = pd.read_excel(file_path, sheet_name='Inventory Register')
+            # Load the inventory register - try different sheet names
+            try:
+                df = pd.read_excel(file_path, sheet_name='Inventory Register')
+            except:
+                print("ℹ️ 'Inventory Register' sheet not found, trying first sheet...")
+                df = pd.read_excel(file_path, sheet_name=0)
             
             print(f"✅ Loaded {len(df)} inventory records")
             return df

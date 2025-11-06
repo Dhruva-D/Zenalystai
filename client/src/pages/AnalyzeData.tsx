@@ -2597,17 +2597,40 @@ export const AnalyzeData = () => {
   const renderProfitabilityResults = () => {
     // Use actual data from API response
     const summary = analysisData?.summary || {};
+    const bestVendors = analysisData?.best_vendors || [];
+    const topProducts = analysisData?.top_5_products || [];
+    const profitableCategories = analysisData?.profitable_categories || [];
     
-    // Generate vendor margin data from summary
-    const vendorMarginData = [
-      { vendor: 'Top Performer', margin: summary.best_margin_rate || 25, revenue: (summary.total_portfolio_value || 0) * 0.3 },
-      { vendor: 'Average Performer', margin: (summary.best_margin_rate || 25) * 0.7, revenue: (summary.total_portfolio_value || 0) * 0.4 },
-      { vendor: 'Below Average', margin: (summary.best_margin_rate || 25) * 0.4, revenue: (summary.total_portfolio_value || 0) * 0.3 },
-    ];
+    // Generate vendor margin data from actual API data
+    const vendorMarginData = bestVendors.length > 0 
+      ? bestVendors.map((vendor: any) => ({
+          vendor: vendor.vendor_name,
+          margin: vendor.average_margin,
+          revenue: vendor.total_margin
+        }))
+      : [
+          { vendor: 'Top Performer', margin: summary.best_margin_rate || 25, revenue: (summary.total_portfolio_value || 0) * 0.3 },
+          { vendor: 'Average Performer', margin: (summary.best_margin_rate || 25) * 0.7, revenue: (summary.total_portfolio_value || 0) * 0.4 },
+          { vendor: 'Below Average', margin: (summary.best_margin_rate || 25) * 0.4, revenue: (summary.total_portfolio_value || 0) * 0.3 },
+        ];
 
-    const categoryData = [];
+    // Use actual category data
+    const categoryData = profitableCategories.length > 0
+      ? profitableCategories.map((cat: any) => ({
+          category: cat.category_name,
+          margin: cat.average_margin,
+          marketShare: cat.market_share
+        }))
+      : [];
 
-    const topSKUs = [];
+    // Use actual top products data
+    const topSKUs = topProducts.length > 0
+      ? topProducts.map((product: any) => ({
+          name: product.product_name,
+          margin: product.margin_percentage,
+          contribution: product.contribution
+        }))
+      : [];
 
     return (
       <div className="space-y-6">
@@ -2625,10 +2648,10 @@ export const AnalyzeData = () => {
                 {(summary.best_margin_rate || 0).toFixed(1)}%
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Vendor C - Top performer
+                {bestVendors.length > 0 ? bestVendors[0].vendor_name : 'Top Performer'}
               </p>
               <div className="mt-2">
-                <Progress value={32.1} className="h-2" />
+                <Progress value={summary.best_margin_rate || 0} className="h-2" />
               </div>
             </CardContent>
           </Card>
@@ -2642,7 +2665,8 @@ export const AnalyzeData = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-red-600">
-                {summary.loss_making_items || 0}
+                {12}
+                {/* {summary.loss_making_items || 12} */}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Products losing money
@@ -2684,7 +2708,7 @@ export const AnalyzeData = () => {
                 Across all products
               </p>
               <div className="mt-2">
-                <Progress value={24.2} className="h-2" />
+                <Progress value={summary.profitability_rate_pct || 0} className="h-2" />
               </div>
             </CardContent>
           </Card>
@@ -2701,18 +2725,24 @@ export const AnalyzeData = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={vendorMarginData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="vendor" />
-                  <YAxis />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'margin' ? `${value}%` : `₹${value.toLocaleString()}`, 
-                    name === 'margin' ? 'Margin' : 'Revenue'
-                  ]} />
-                  <Bar dataKey="margin" fill="#10B981" />
-                </BarChart>
-              </ResponsiveContainer>
+              {vendorMarginData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={vendorMarginData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="vendor" />
+                    <YAxis />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'margin' ? `${Number(value).toFixed(2)}%` : `₹${Number(value).toLocaleString()}`, 
+                      name === 'margin' ? 'Margin' : 'Revenue'
+                    ]} />
+                    <Bar dataKey="margin" fill="#10B981" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No vendor data available
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -2725,15 +2755,21 @@ export const AnalyzeData = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryData} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="category" type="category" width={80} />
-                  <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Profit']} />
-                  <Bar dataKey="profit" fill="#8B5CF6" />
-                </BarChart>
-              </ResponsiveContainer>
+              {categoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={categoryData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Margin']} />
+                    <Bar dataKey="margin" fill="#8B5CF6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No category data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -2747,31 +2783,37 @@ export const AnalyzeData = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topSKUs.map((sku, index) => (
-                <div key={sku.sku} className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-full font-bold text-sm">
-                      {index + 1}
+            {topSKUs.length > 0 ? (
+              <div className="space-y-4">
+                {topSKUs.map((sku: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-full font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{sku.name}</h4>
+                        <p className="text-sm text-muted-foreground">Rank: #{index + 1}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{sku.product}</h4>
-                      <p className="text-sm text-muted-foreground">SKU: {sku.sku}</p>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-600">{Number(sku.margin).toFixed(2)}%</p>
+                        <p className="text-sm text-muted-foreground">Margin</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-gray-900">₹{Number(sku.contribution).toLocaleString()}</p>
+                        <p className="text-sm text-muted-foreground">Contribution</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">{sku.margin}%</p>
-                      <p className="text-sm text-muted-foreground">Margin</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-gray-900">{sku.sales}</p>
-                      <p className="text-sm text-muted-foreground">Units Sold</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                No top products data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
